@@ -12,8 +12,8 @@ dependencies:
     sdk: flutter
   plugin_platform_interface: ^2.0.2
 
+  ffi: any
 dev_dependencies:
-  ffi: ^2.1.0
   ffigen: ^11.0.0
   flutter_test:
     sdk: flutter

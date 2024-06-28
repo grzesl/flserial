@@ -1,37 +1,10 @@
 
-import 'dart:async';
+import 'dart:convert';
 import 'dart:ffi';
+import 'dart:typed_data';
+import 'package:ffi/ffi.dart';
 import 'dart:io';
-import 'dart:isolate';
-
 import 'flserial_bindings_generated.dart';
-
-/// A very short-lived native function.
-///
-/// For very short-lived functions, it is fine to call them on the main isolate.
-/// They will block the Dart execution while running the native function, so
-/// only do this for native functions which are guaranteed to be short-lived.
-int sum(int a, int b) => _bindings.sum(a, b);
-
-/// A longer lived native function, which occupies the thread calling it.
-///
-/// Do not call these kind of native functions in the main isolate. They will
-/// block Dart execution. This will cause dropped frames in Flutter applications.
-/// Instead, call these native functions on a separate isolate.
-///
-/// Modify this to suit your own use case. Example use cases:
-///
-/// 1. Reuse a single isolate for various different kinds of requests.
-/// 2. Use multiple helper isolates for parallel execution.
-Future<int> sumAsync(int a, int b) async {
-  final SendPort helperIsolateSendPort = await _helperIsolateSendPort;
-  final int requestId = _nextSumRequestId++;
-  final _SumRequest request = _SumRequest(requestId, a, b);
-  final Completer<int> completer = Completer<int>();
-  _sumRequests[requestId] = completer;
-  helperIsolateSendPort.send(request);
-  return completer.future;
-}
 
 const String _libName = 'flserial';
 
@@ -53,79 +26,82 @@ final DynamicLibrary _dylib = () {
 final FlserialBindings _bindings = FlserialBindings(_dylib);
 
 
-/// A request to compute `sum`.
-///
-/// Typically sent from one isolate to another.
-class _SumRequest {
-  final int id;
-  final int a;
-  final int b;
-
-  const _SumRequest(this.id, this.a, this.b);
+String nativeInt8ToString(Pointer<Int8> pointer, {bool allowMalformed = true}) {
+  var ptrName = pointer.cast<Utf8>();
+  final ptrNameCodeUnits = pointer.cast<Uint8>();
+  var list = ptrNameCodeUnits.asTypedList(ptrName.length);
+  return utf8.decode(list, allowMalformed: allowMalformed);
 }
 
-/// A response with the result of `sum`.
-///
-/// Typically sent from one isolate to another.
-class _SumResponse {
-  final int id;
-  final int result;
-
-  const _SumResponse(this.id, this.result);
+Pointer<Char> stringToNativeInt8(String str, {Allocator allocator = calloc}) {
+  final units = utf8.encode(str);
+  final result = allocator<Uint8>(units.length + 1);
+  final nativeString = result.asTypedList(units.length + 1);
+  nativeString.setAll(0, units);
+  nativeString[units.length] = 0;
+  return result.cast<Char>();
 }
 
-/// Counter to identify [_SumRequest]s and [_SumResponse]s.
-int _nextSumRequestId = 0;
 
-/// Mapping from [_SumRequest] `id`s to the completers corresponding to the correct future of the pending request.
-final Map<int, Completer<int>> _sumRequests = <int, Completer<int>>{};
 
-/// The SendPort belonging to the helper isolate.
-Future<SendPort> _helperIsolateSendPort = () async {
-  // The helper isolate is going to send us back a SendPort, which we want to
-  // wait for.
-  final Completer<SendPort> completer = Completer<SendPort>();
+Pointer<Char> int8ListToPointerInt8(Uint8List units,
+    {Allocator allocator = calloc}) {
+  final pointer = allocator<Uint8>(units.length + 1); //blob
+  final nativeString = pointer.asTypedList(units.length + 1); //blobBytes
+  nativeString.setAll(0, units);
+  nativeString[units.length] = 0;
+  return pointer.cast<Char>();
+}
 
-  // Receive port on the main isolate to receive messages from the helper.
-  // We receive two types of messages:
-  // 1. A port to send messages on.
-  // 2. Responses to requests we sent.
-  final ReceivePort receivePort = ReceivePort()
-    ..listen((dynamic data) {
-      if (data is SendPort) {
-        // The helper isolate sent us the port on which we can sent it requests.
-        completer.complete(data);
-        return;
-      }
-      if (data is _SumResponse) {
-        // The helper isolate sent us a response to a request we sent.
-        final Completer<int> completer = _sumRequests[data.id]!;
-        _sumRequests.remove(data.id);
-        completer.complete(data.result);
-        return;
-      }
-      throw UnsupportedError('Unsupported message type: ${data.runtimeType}');
-    });
+Int8List nativeInt8ToInt8List(Pointer<Int8> pointer) {
+  var ptrName = pointer.cast<Utf8>();
+  final ptrNameCodeUnits = pointer.cast<Int8>();
+  var list = ptrNameCodeUnits.asTypedList(ptrName.length);
+  return list;
+}
 
-  // Start the helper isolate.
-  await Isolate.spawn((SendPort sendPort) async {
-    final ReceivePort helperReceivePort = ReceivePort()
-      ..listen((dynamic data) {
-        // On the helper isolate listen to requests and respond to them.
-        if (data is _SumRequest) {
-          final int result = _bindings.sum_long_running(data.a, data.b);
-          final _SumResponse response = _SumResponse(data.id, result);
-          sendPort.send(response);
-          return;
-        }
-        throw UnsupportedError('Unsupported message type: ${data.runtimeType}');
-      });
 
-    // Send the port to the main isolate on which we can receive requests.
-    sendPort.send(helperReceivePort.sendPort);
-  }, receivePort.sendPort);
+class FlSerial {
+  int flh = -1;
+  
+  int init () {
+    return _bindings.fl_init(1);
+  }
+ 
+  int openPort(String portname, int baudrate) {
+    flh = _bindings.fl_open( stringToNativeInt8(portname), baudrate, 0);
+    return flh;
+  }
 
-  // Wait until the helper isolate has sent us back the SendPort on which we
-  // can start sending requests.
-  return completer.future;
-}();
+  Uint8List read(int len) {
+    Allocator allocator = calloc;
+    var result = allocator<Char>(len);
+    int intres = _bindings.fl_read(flh, len, result);
+
+    if(intres <=0) {
+      return Uint8List(0);
+    }
+      
+    final ptrNameCodeUnits = result.cast<Uint8>();
+    var list = ptrNameCodeUnits.asTypedList(len);
+    return list;
+  }
+
+  int write(int len, Uint8List data) {
+    return _bindings.fl_write(flh,  len, int8ListToPointerInt8(data));
+  }
+
+  int closePort() {
+    return _bindings.fl_close(flh);
+  }
+
+  int ctrl(int cmd, int value) {
+    return _bindings.fl_ctrl(flh,cmd,value);
+  }
+
+  int free() {
+    return _bindings.fl_free();
+  }
+
+
+}

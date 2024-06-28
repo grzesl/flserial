@@ -27,44 +27,106 @@ class FlserialBindings {
           lookup)
       : _lookup = lookup;
 
-  /// A very short-lived native function.
-  ///
-  /// For very short-lived functions, it is fine to call them on the main isolate.
-  /// They will block the Dart execution while running the native function, so
-  /// only do this for native functions which are guaranteed to be short-lived.
-  int sum(
-    int a,
-    int b,
+  int fl_init(
+    int portCount,
   ) {
-    return _sum(
-      a,
-      b,
+    return _fl_init(
+      portCount,
     );
   }
 
-  late final _sumPtr =
-      _lookup<ffi.NativeFunction<ffi.Int Function(ffi.Int, ffi.Int)>>(
-          'sum');
-  late final _sum = _sumPtr.asFunction<int Function(int, int)>();
+  late final _fl_initPtr =
+      _lookup<ffi.NativeFunction<ffi.Int Function(ffi.Int)>>('fl_init');
+  late final _fl_init = _fl_initPtr.asFunction<int Function(int)>();
 
-  /// A longer lived native function, which occupies the thread calling it.
-  ///
-  /// Do not call these kind of native functions in the main isolate. They will
-  /// block Dart execution. This will cause dropped frames in Flutter applications.
-  /// Instead, call these native functions on a separate isolate.
-  int sum_long_running(
-    int a,
-    int b,
+  int fl_open(
+    ffi.Pointer<ffi.Char> portname,
+    int baudrate, int i,
   ) {
-    return _sum_long_running(
-      a,
-      b,
+    return _fl_open(
+      portname,
+      baudrate,
     );
   }
 
-  late final _sum_long_runningPtr =
-      _lookup<ffi.NativeFunction<ffi.Int Function(ffi.Int, ffi.Int)>>(
-          'sum_long_running');
-  late final _sum_long_running =
-      _sum_long_runningPtr.asFunction<int Function(int, int)>();
+  late final _fl_openPtr = _lookup<
+          ffi.NativeFunction<ffi.Int Function(ffi.Pointer<ffi.Char>, ffi.Int)>>(
+      'fl_open');
+  late final _fl_open =
+      _fl_openPtr.asFunction<int Function(ffi.Pointer<ffi.Char>, int)>();
+
+  int fl_read(
+    int ioh,
+    int len,
+    ffi.Pointer<ffi.Char> buff,
+  ) {
+    return _fl_read(
+      ioh,
+      len,
+      buff,
+    );
+  }
+
+  late final _fl_readPtr = _lookup<
+      ffi.NativeFunction<
+          ffi.Int Function(
+              ffi.Int, ffi.Int, ffi.Pointer<ffi.Char>)>>('fl_read');
+  late final _fl_read =
+      _fl_readPtr.asFunction<int Function(int, int, ffi.Pointer<ffi.Char>)>();
+
+  int fl_write(
+    int ioh,
+    int len,
+    ffi.Pointer<ffi.Char> data,
+  ) {
+    return _fl_write(
+      ioh,
+      len,
+      data,
+    );
+  }
+
+  late final _fl_writePtr = _lookup<
+      ffi.NativeFunction<
+          ffi.Int Function(
+              ffi.Int, ffi.Int, ffi.Pointer<ffi.Char>)>>('fl_write');
+  late final _fl_write =
+      _fl_writePtr.asFunction<int Function(int, int, ffi.Pointer<ffi.Char>)>();
+
+  int fl_close(
+    int ioh,
+  ) {
+    return _fl_close(
+      ioh,
+    );
+  }
+
+  late final _fl_closePtr =
+      _lookup<ffi.NativeFunction<ffi.Int Function(ffi.Int)>>('fl_close');
+  late final _fl_close = _fl_closePtr.asFunction<int Function(int)>();
+
+  int fl_ctrl(
+    int ioh,
+    int param,
+    int value,
+  ) {
+    return _fl_ctrl(
+      ioh,
+      param,
+      value,
+    );
+  }
+
+  late final _fl_ctrlPtr =
+      _lookup<ffi.NativeFunction<ffi.Int Function(ffi.Int, ffi.Int, ffi.Int)>>(
+          'fl_ctrl');
+  late final _fl_ctrl = _fl_ctrlPtr.asFunction<int Function(int, int, int)>();
+
+  int fl_free() {
+    return _fl_free();
+  }
+
+  late final _fl_freePtr =
+      _lookup<ffi.NativeFunction<ffi.Int Function()>>('fl_free');
+  late final _fl_free = _fl_freePtr.asFunction<int Function()>();
 }

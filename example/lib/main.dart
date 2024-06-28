@@ -1,7 +1,7 @@
-import 'package:flutter/material.dart';
-import 'dart:async';
+import 'dart:typed_data';
 
-import 'package:flserial/flserial.dart' as flserial;
+import 'package:flutter/material.dart';
+import 'package:flserial/flserial.dart';
 
 void main() {
   runApp(const MyApp());
@@ -15,14 +15,14 @@ class MyApp extends StatefulWidget {
 }
 
 class _MyAppState extends State<MyApp> {
-  late int sumResult;
-  late Future<int> sumAsyncResult;
-
+  late int sumResult = 0;
+  late FlSerial serial;
+  String resultMsg = "null";
   @override
   void initState() {
     super.initState();
-    sumResult = flserial.sum(1, 2);
-    sumAsyncResult = flserial.sumAsync(3, 4);
+    serial = FlSerial();
+    serial.init();
   }
 
   @override
@@ -39,9 +39,26 @@ class _MyAppState extends State<MyApp> {
             padding: const EdgeInsets.all(10),
             child: Column(
               children: [
-                const Text(
-                  'This calls a native function through FFI that is shipped as source in the package. '
-                  'The native code is built as part of the Flutter Runner build.',
+                TextButton(onPressed: () {
+
+                 serial.openPort("COM3", 115200);
+
+                 int wrt = serial.write(1, Uint8List.fromList({0x10}.toList()));
+
+                 if (wrt > 0) {
+                  Uint8List read = serial.read(1);
+                  if(read.isNotEmpty ) {
+                    print(read);
+                  }
+                  setState(() {
+                    resultMsg = read.toString();
+                  });
+                 }
+
+                 serial.closePort();
+                  
+                }, child: const Text("Run serial test")),
+                Text(resultMsg,
                   style: textStyle,
                   textAlign: TextAlign.center,
                 ),
@@ -52,18 +69,7 @@ class _MyAppState extends State<MyApp> {
                   textAlign: TextAlign.center,
                 ),
                 spacerSmall,
-                FutureBuilder<int>(
-                  future: sumAsyncResult,
-                  builder: (BuildContext context, AsyncSnapshot<int> value) {
-                    final displayValue =
-                        (value.hasData) ? value.data : 'loading';
-                    return Text(
-                      'await sumAsync(3, 4) = $displayValue',
-                      style: textStyle,
-                      textAlign: TextAlign.center,
-                    );
-                  },
-                ),
+             
               ],
             ),
           ),
