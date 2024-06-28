@@ -1,4 +1,6 @@
 # flserial
+Flutter Serial Port Library FFI based
+# flserial
 
 A new Flutter FFI plugin project.
 
