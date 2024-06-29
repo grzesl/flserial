@@ -40,28 +40,31 @@ class FlserialBindings {
   late final _fl_init = _fl_initPtr.asFunction<int Function(int)>();
 
   int fl_open(
+    int flh,
     ffi.Pointer<ffi.Char> portname,
-    int baudrate, int i,
+    int baudrate,
   ) {
     return _fl_open(
+      flh,
       portname,
       baudrate,
     );
   }
 
   late final _fl_openPtr = _lookup<
-          ffi.NativeFunction<ffi.Int Function(ffi.Pointer<ffi.Char>, ffi.Int)>>(
-      'fl_open');
+      ffi.NativeFunction<
+          ffi.Int Function(
+              ffi.Int, ffi.Pointer<ffi.Char>, ffi.Int)>>('fl_open');
   late final _fl_open =
-      _fl_openPtr.asFunction<int Function(ffi.Pointer<ffi.Char>, int)>();
+      _fl_openPtr.asFunction<int Function(int, ffi.Pointer<ffi.Char>, int)>();
 
   int fl_read(
-    int ioh,
+    int flh,
     int len,
     ffi.Pointer<ffi.Char> buff,
   ) {
     return _fl_read(
-      ioh,
+      flh,
       len,
       buff,
     );
@@ -75,12 +78,12 @@ class FlserialBindings {
       _fl_readPtr.asFunction<int Function(int, int, ffi.Pointer<ffi.Char>)>();
 
   int fl_write(
-    int ioh,
+    int flh,
     int len,
     ffi.Pointer<ffi.Char> data,
   ) {
     return _fl_write(
-      ioh,
+      flh,
       len,
       data,
     );
@@ -94,10 +97,10 @@ class FlserialBindings {
       _fl_writePtr.asFunction<int Function(int, int, ffi.Pointer<ffi.Char>)>();
 
   int fl_close(
-    int ioh,
+    int flh,
   ) {
     return _fl_close(
-      ioh,
+      flh,
     );
   }
 
@@ -106,20 +109,20 @@ class FlserialBindings {
   late final _fl_close = _fl_closePtr.asFunction<int Function(int)>();
 
   int fl_ctrl(
-    int ioh,
+    int flh,
     int param,
     int value,
   ) {
     return _fl_ctrl(
-      ioh,
+      flh,
       param,
       value,
     );
   }
 
-  late final _fl_ctrlPtr =
-      _lookup<ffi.NativeFunction<ffi.Int Function(ffi.Int, ffi.Int, ffi.Int)>>(
-          'fl_ctrl');
+  late final _fl_ctrlPtr = _lookup<
+          ffi.NativeFunction<ffi.Int Function(ffi.Int, ffi.Int32, ffi.Int)>>(
+      'fl_ctrl');
   late final _fl_ctrl = _fl_ctrlPtr.asFunction<int Function(int, int, int)>();
 
   int fl_free() {
@@ -129,4 +132,17 @@ class FlserialBindings {
   late final _fl_freePtr =
       _lookup<ffi.NativeFunction<ffi.Int Function()>>('fl_free');
   late final _fl_free = _fl_freePtr.asFunction<int Function()>();
+}
+
+abstract class flCtrl {
+  static const int FL_CTRL_LAST_ERROR = 0;
+  static const int FL_CTRL_IS_PORT_OPEN = 1;
+  static const int FL_CTRL_LAST = 2;
+}
+
+abstract class flError {
+  static const int FL_ERROR_OK = 0;
+  static const int FL_ERROR_PORT_ALLREADY_OPEN = 1;
+  static const int FL_ERROR_UNKNOW = 2;
+  static const int FL_ERROR_LAST = 3;
 }

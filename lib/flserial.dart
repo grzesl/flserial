@@ -60,6 +60,12 @@ Int8List nativeInt8ToInt8List(Pointer<Int8> pointer) {
   return list;
 }
 
+enum fLOpenStatus {
+  Open,
+  Closed,
+  Error,
+}
+
 
 class FlSerial {
   int flh = -1;
@@ -68,10 +74,42 @@ class FlSerial {
     return _bindings.fl_init(1);
   }
  
-  int openPort(String portname, int baudrate) {
-    flh = _bindings.fl_open( stringToNativeInt8(portname), baudrate, 0);
-    return flh;
+  fLOpenStatus openPort(String portname, int baudrate) {
+    flh = _bindings.fl_open(flh, stringToNativeInt8(portname), baudrate);
+    return isOpen();
   }
+
+
+  fLOpenStatus isOpen() {
+    int error = _bindings.fl_ctrl(flh, flCtrl.FL_CTRL_LAST_ERROR, -1);
+    if(error > 0) {
+      return fLOpenStatus.Error;
+    }
+    int nres = _bindings.fl_ctrl(flh, flCtrl.FL_CTRL_IS_PORT_OPEN, -1);
+    if(nres == 0) {
+      return fLOpenStatus.Closed;
+    }
+    return fLOpenStatus.Open;
+  }
+
+  String getLastError() {
+    int res  = _bindings.fl_ctrl(flh, flCtrl.FL_CTRL_LAST_ERROR, -1);
+    String strres = "";
+
+    switch(res) {
+      case flError.FL_ERROR_OK:
+        strres = "0: None";
+        break;
+      case flError.FL_ERROR_PORT_ALLREADY_OPEN:
+        strres = res.toString() + ": Port allready open";
+        break;
+      default:
+        strres = "-1: Unknow error";
+        break;
+    }
+    return strres;
+  }
+
 
   Uint8List read(int len) {
     Allocator allocator = calloc;

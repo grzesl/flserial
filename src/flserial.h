@@ -1,6 +1,7 @@
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <errno.h>
 
 #if _WIN32
 #include <windows.h>
@@ -15,17 +16,30 @@
 #define FFI_PLUGIN_EXPORT
 #endif
 
+enum flCtrl {
+  FL_CTRL_LAST_ERROR,
+  FL_CTRL_IS_PORT_OPEN,
+  FL_CTRL_LAST
+};
+
+enum flError {
+    FL_ERROR_OK,
+    FL_ERROR_PORT_ALLREADY_OPEN,
+    FL_ERROR_UNKNOW,
+    FL_ERROR_LAST
+};
+
 #ifdef __cplusplus
 extern "C" {
 #endif
 
 FFI_PLUGIN_EXPORT int fl_init (int portCount);
-FFI_PLUGIN_EXPORT int fl_open (char *portname, int baudrate);
-FFI_PLUGIN_EXPORT int fl_read (int ioh, int len, char *buff);
-FFI_PLUGIN_EXPORT int fl_write (int ioh, int len, char *data);
-FFI_PLUGIN_EXPORT int fl_close (int ioh);
-FFI_PLUGIN_EXPORT int fl_ctrl(int ioh, int param, int value);
-FFI_PLUGIN_EXPORT int fl_free();
+FFI_PLUGIN_EXPORT int fl_open (int flh, char *portname, int baudrate);
+FFI_PLUGIN_EXPORT int fl_read (int flh, int len, char *buff);
+FFI_PLUGIN_EXPORT int fl_write (int flh, int len, char *data);
+FFI_PLUGIN_EXPORT int fl_close (int flh);
+FFI_PLUGIN_EXPORT int fl_ctrl (int flh, enum flCtrl param, int value);
+FFI_PLUGIN_EXPORT int fl_free ();
 
 
 #ifdef __cplusplus

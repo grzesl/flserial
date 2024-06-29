@@ -17,7 +17,7 @@ class MyApp extends StatefulWidget {
 class _MyAppState extends State<MyApp> {
   late int sumResult = 0;
   late FlSerial serial;
-  String resultMsg = "null";
+  String resultMsg = "Try to use button";
   @override
   void initState() {
     super.initState();
@@ -41,8 +41,15 @@ class _MyAppState extends State<MyApp> {
               children: [
                 TextButton(onPressed: () {
 
-                 serial.openPort("COM3", 115200);
+                if (serial.openPort("COM3", 115200) == fLOpenStatus.Error)
+                {
 
+                  setState(() {
+                    resultMsg = "Port not open because error " + serial.getLastError();
+                  });
+
+                  serial.closePort(); // free
+                } else {
                  int wrt = serial.write(1, Uint8List.fromList({0x10}.toList()));
 
                  if (wrt > 0) {
@@ -51,11 +58,12 @@ class _MyAppState extends State<MyApp> {
                     print(read);
                   }
                   setState(() {
-                    resultMsg = read.toString();
+                    resultMsg = "Success read byte: " + read.toString();
                   });
                  }
 
-                 serial.closePort();
+                 serial.closePort();                
+                }
                   
                 }, child: const Text("Run serial test")),
                 Text(resultMsg,

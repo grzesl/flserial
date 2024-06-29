@@ -1,16 +1,19 @@
 #include "flserial.h"
 #include "serial.h"
+#include <iostream>
 
 #define MAX_PORT_NAME_LEN 512
+#define MAX_PORT_COUNT 128
 
 typedef struct _flserial_
 {
     char portname [MAX_PORT_NAME_LEN + 1];
     int baudrate; 
     serial::Serial *serialport;
+    enum flError lasterror;
 }flserial;
 
-flserial *flserial_tab[128];
+flserial *flserial_tab[MAX_PORT_COUNT];
 int flserial_count;
 int current_port; 
 
@@ -20,30 +23,46 @@ FFI_PLUGIN_EXPORT int fl_init (int portCount) {
     return 0;
 } 
 
-FFI_PLUGIN_EXPORT int fl_open (char *portname, int baudrate) {
-    flserial_tab[++current_port] = new flserial();
-    flserial *port = flserial_tab[current_port];
-    strncpy(port->portname, portname, MAX_PORT_NAME_LEN);
+FFI_PLUGIN_EXPORT int fl_open (int flh, char *portname, int baudrate) {
+    int porth = flh;
+
+    if (porth < 0)
+        porth = ++current_port;
+
+    flserial *port = new flserial();
+    flserial_tab[porth] = port;
+
+    strncpy_s(port->portname, portname, MAX_PORT_NAME_LEN);
     port->baudrate = baudrate;
 
-    port->serialport = new serial::Serial(portname, baudrate);
+    port->serialport = new serial::Serial();
+    port->serialport->setPort(portname);
+    port->serialport->setBaudrate(baudrate);
+    
+    try
+    {
+       port->serialport->open();
+    }
+    catch(const std::exception& e)
+    {
+        port->lasterror = flError::FL_ERROR_PORT_ALLREADY_OPEN;
+    }
 
-    if(port->serialport->isOpen())
-        return current_port; //ioh
-    return -1;
+    return porth; 
 }
-FFI_PLUGIN_EXPORT int fl_read (int ioh, int len, char *buff) {
-    flserial *port = flserial_tab[ioh];
+
+FFI_PLUGIN_EXPORT int fl_read (int flh, int len, char *buff) {
+    flserial *port = flserial_tab[flh];
     return port->serialport->read((uint8_t*)buff, len);
 }
 
-FFI_PLUGIN_EXPORT int fl_write (int ioh, int len, char *data) {
-    flserial *port = flserial_tab[ioh];
+FFI_PLUGIN_EXPORT int fl_write (int flh, int len, char *data) {
+    flserial *port = flserial_tab[flh];
     return port->serialport->write((uint8_t*)data, len);
 }
 
-FFI_PLUGIN_EXPORT int fl_close (int ioh) {
-    flserial *port = flserial_tab[ioh];
+FFI_PLUGIN_EXPORT int fl_close (int flh) {
+    flserial *port = flserial_tab[flh];
     port->serialport->close();
     delete port->serialport;
     port->serialport = NULL;
@@ -51,8 +70,20 @@ FFI_PLUGIN_EXPORT int fl_close (int ioh) {
     return 0;
 }
 
-FFI_PLUGIN_EXPORT int fl_ctrl(int ioh, int param, int value) {
-    return 0;
+FFI_PLUGIN_EXPORT int fl_ctrl(int flh, enum flCtrl param, int value) {
+
+    int result = -1;
+    flserial *port = flserial_tab[flh];
+
+    switch (param){
+        case FL_CTRL_IS_PORT_OPEN:
+            result = port->serialport->isOpen()?1:0;
+            break;
+        case FL_CTRL_LAST_ERROR:
+            result = port->lasterror;
+        break;
+    }
+    return result;
 }
 
 FFI_PLUGIN_EXPORT int fl_free() {
