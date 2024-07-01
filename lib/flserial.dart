@@ -4,6 +4,7 @@ import 'dart:convert';
 import 'dart:ffi';
 import 'dart:typed_data';
 import 'package:ffi/ffi.dart';
+import 'package:flserial/flserial_exception.dart';
 import 'dart:io';
 import 'flserial_bindings_generated.dart';
 import 'package:event/event.dart';
@@ -67,9 +68,10 @@ enum FLOpenStatus {
 }
 
 class FlSerialEventArgs extends EventArgs {
-  FlSerialEventArgs(len, dataRecivied);
-  int len = 0;
-  Uint8List dataRecivied = Uint8List(0);
+  FlSerialEventArgs(this.len, this.dataRecivied, this.cts, this.dsr);
+  final int len;
+  final Uint8List dataRecivied;
+  final bool cts , dsr;
 }
 
 
@@ -77,10 +79,19 @@ class FlSerial {
   int flh = -1;
   List<int> readBuff = List.empty(growable: true);
   late Timer _timer;
-  Event<FlSerialEventArgs> onSerialData = Event<FlSerialEventArgs>();
+  var onSerialData = Event<FlSerialEventArgs>();
+  bool prevCTS = false;
+  bool prevDSR = false;
 
   int init () {
     return _bindings.fl_init(1);
+  }
+
+  int _checkFLH(int handler) {
+    if (handler >=0 && handler < MAX_PORT_COUNT){
+      return flError.FL_ERROR_OK;
+    }
+    throw FlserialException(flError.FL_ERROR_HANDLER);
   }
  
   FLOpenStatus openPort(String portname, int baudrate) {
@@ -105,18 +116,28 @@ class FlSerial {
       return FLOpenStatus.closed;
     }
 
-
-    _timer = Timer.periodic(Duration(milliseconds: 100), (timer) async {
-      await _readProcess();
-      if(readBuff.isNotEmpty) {
-        onSerialData.broadcast(FlSerialEventArgs(readBuff.length, Uint8List(0) /*readBuff.toList()*/));
-    }
-    },);
+    _timer = Timer.periodic(
+      const Duration(milliseconds: 100),
+      (timer) async {
+        if (flh < 0) {
+          _timer.cancel();
+          return;
+        }
+        await _readProcess();
+        if (readBuff.isNotEmpty) {
+          onSerialData.broadcast(FlSerialEventArgs(
+              readBuff.length, Uint8List(0), prevCTS, prevDSR));
+        }
+      },
+    );
     
     return FLOpenStatus.open;
   }
 
   String getLastError() {
+
+    _checkFLH(flh);
+
     int res  = _bindings.fl_ctrl(flh, flCtrl.FL_CTRL_LAST_ERROR, -1);
     String strres = "";
 
@@ -135,12 +156,32 @@ class FlSerial {
   }
 
   Future<int> _readProcess() async {
-    Uint8List list = await _readList(64);
+    _checkFLH(flh);
+    Uint8List list = _readList(1024);
+     _readLineStatus();
     readBuff.addAll(list);
-    return readBuff.length;
+    return Future<int>.value( readBuff.length );
+  }
+
+  Future<int> _readLineStatus() async {
+    _checkFLH(flh);
+
+    bool currCTS = getCTS();
+    bool currDSR = getDSR();
+    if(currCTS != prevCTS || prevDSR != currDSR)
+    {
+      prevCTS = currCTS;
+      prevDSR = currDSR;
+
+      onSerialData.broadcast(FlSerialEventArgs(
+              readBuff.length, Uint8List(0), currCTS, currDSR));
+    }
+    return 0;
   }
 
   Uint8List _readList(int len) {
+    _checkFLH(flh);
+
     Allocator allocator = calloc;
     var result = allocator<Char>(len);
     int intres = _bindings.fl_read(flh, len, result);
@@ -155,6 +196,8 @@ class FlSerial {
   }
 
   Uint8List readList() {
+    _checkFLH(flh);
+
     Uint8List old = Uint8List(0);
     if (readBuff.isNotEmpty) {
       var len = readBuff.length;
@@ -166,6 +209,8 @@ class FlSerial {
   }
 
   int read() {
+    _checkFLH(flh);
+
     if (readBuff.isNotEmpty) {
       return readBuff.removeAt(0);
     }
@@ -173,25 +218,52 @@ class FlSerial {
   }
 
   int write(int len, Uint8List data) {
+    _checkFLH(flh);
+
     return _bindings.fl_write(flh,  len, int8ListToPointerInt8(data));
   }
 
   int closePort() {
-    _timer.cancel();
-    return _bindings.fl_close(flh);
+    _checkFLH(flh);
+    sleep(const Duration(milliseconds: 1));
+    _bindings.fl_ctrl(flh, flCtrl.FL_CTRL_BREAK, 0);
+    _bindings.fl_close(flh);
+     flh = -1;
+    return flh;
   }
 
   int ctrl(int cmd, int value) {
+    _checkFLH(flh);
     return _bindings.fl_ctrl(flh,cmd,value);
   }
+
+  int setRTS(bool value){
+    _checkFLH(flh);
+    return _bindings.fl_ctrl(flh,flCtrl.FL_CTRL_SET_RTS,value?1:0);
+  }
+
+  bool getCTS(){
+    _checkFLH(flh);
+    return _bindings.fl_ctrl(flh,flCtrl.FL_CTRL_GET_CTS,0) > 0? true:false;
+  }
+
+
+  int setDTR(bool value){
+    _checkFLH(flh);
+    return _bindings.fl_ctrl(flh,flCtrl.FL_CTRL_SET_DTR,value?1:0);
+  }
+
+  bool getDSR(){
+    _checkFLH(flh);
+    return _bindings.fl_ctrl(flh,flCtrl.FL_CTRL_GET_DSR,0) > 0? true:false;
+  }
+
 
   int free() {
     return _bindings.fl_free();
   }
 
   int getTickCount() {
-    return new DateTime.now().millisecond;
+    return DateTime.now().millisecond;
   }
-
-
 }

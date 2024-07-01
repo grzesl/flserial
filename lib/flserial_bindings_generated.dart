@@ -137,12 +137,22 @@ class FlserialBindings {
 abstract class flCtrl {
   static const int FL_CTRL_LAST_ERROR = 0;
   static const int FL_CTRL_IS_PORT_OPEN = 1;
-  static const int FL_CTRL_LAST = 2;
+  static const int FL_CTRL_BREAK = 2;
+  static const int FL_CTRL_SET_RTS = 3;
+  static const int FL_CTRL_GET_CTS = 4;
+  static const int FL_CTRL_SET_DTR = 5;
+  static const int FL_CTRL_GET_DSR = 6;
+  static const int FL_CTRL_LAST = 7;
 }
 
 abstract class flError {
   static const int FL_ERROR_OK = 0;
-  static const int FL_ERROR_PORT_ALLREADY_OPEN = 1;
-  static const int FL_ERROR_UNKNOW = 2;
-  static const int FL_ERROR_LAST = 3;
+  static const int FL_ERROR_UNKNOW = 1;
+  static const int FL_ERROR_PORT_ALLREADY_OPEN = 2;
+  static const int FL_ERROR_HANDLER = 3;
+  static const int FL_ERROR_LAST = 4;
 }
+
+const int MAX_PORT_NAME_LEN = 512;
+
+const int MAX_PORT_COUNT = 128;

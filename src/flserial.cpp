@@ -2,8 +2,7 @@
 #include "serial.h"
 #include <iostream>
 
-#define MAX_PORT_NAME_LEN 512
-#define MAX_PORT_COUNT 128
+
 
 typedef struct _flserial_
 {
@@ -97,6 +96,24 @@ FFI_PLUGIN_EXPORT int fl_ctrl(int flh, enum flCtrl param, int value) {
             break;
         case FL_CTRL_LAST_ERROR:
             result = port->lasterror;
+        break;
+        case FL_CTRL_BREAK:
+            port->serialport->setBreak();
+            result = FL_ERROR_OK;
+        break;
+        case FL_CTRL_SET_RTS:
+            port->serialport->setRTS(value>0?true:false);
+            result = FL_ERROR_OK;
+        break;
+        case FL_CTRL_GET_CTS:
+            result = port->serialport->getCTS()?1:0;
+        break;
+        case FL_CTRL_SET_DTR:
+            port->serialport->setDTR(value>0?true:false);
+            result = FL_ERROR_OK;
+        break;
+        case FL_CTRL_GET_DSR:
+            result = port->serialport->getDSR()?1:0;
         break;
     }
     return result;
