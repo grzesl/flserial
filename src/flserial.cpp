@@ -32,18 +32,23 @@ FFI_PLUGIN_EXPORT int fl_open (int flh, char *portname, int baudrate) {
     flserial *port = new flserial();
     flserial_tab[porth] = port;
 
+
     strncpy_s(port->portname, portname, MAX_PORT_NAME_LEN);
     port->baudrate = baudrate;
+    port->lasterror = FL_ERROR_OK;
+
 
     port->serialport = new serial::Serial();
+    port->serialport->setTimeout(serial::Timeout(0,1,0));
     port->serialport->setPort(portname);
     port->serialport->setBaudrate(baudrate);
+   
     
     try
     {
        port->serialport->open();
     }
-    catch(const std::exception& e)
+    catch(const std::exception&)
     {
         port->lasterror = flError::FL_ERROR_PORT_ALLREADY_OPEN;
     }
@@ -53,12 +58,23 @@ FFI_PLUGIN_EXPORT int fl_open (int flh, char *portname, int baudrate) {
 
 FFI_PLUGIN_EXPORT int fl_read (int flh, int len, char *buff) {
     flserial *port = flserial_tab[flh];
-    return port->serialport->read((uint8_t*)buff, len);
+    int res = 0;
+
+    try
+    {
+       res = (int)port->serialport->read((uint8_t*)buff, (size_t)len);
+    }
+    catch(const std::exception&)
+    {
+        port->lasterror = flError::FL_ERROR_PORT_ALLREADY_OPEN;
+    }
+
+    return res;
 }
 
 FFI_PLUGIN_EXPORT int fl_write (int flh, int len, char *data) {
     flserial *port = flserial_tab[flh];
-    return port->serialport->write((uint8_t*)data, len);
+    return (int)port->serialport->write((uint8_t*)data, (size_t)len);
 }
 
 FFI_PLUGIN_EXPORT int fl_close (int flh) {

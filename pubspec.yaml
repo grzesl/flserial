@@ -1,7 +1,7 @@
 name: flserial
 description: "A new Flutter FFI plugin project."
 version: 0.0.1
-homepage:
+homepage: "https://github.com/grzesl/flserial"
 
 environment:
   sdk: '>=3.4.3 <4.0.0'
@@ -11,8 +11,8 @@ dependencies:
   flutter:
     sdk: flutter
   plugin_platform_interface: ^2.0.2
-
   ffi: any
+  event: ^2.1.2
 dev_dependencies:
   ffigen: ^11.0.0
   flutter_test:

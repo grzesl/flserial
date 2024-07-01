@@ -1,10 +1,12 @@
 
+import 'dart:async';
 import 'dart:convert';
 import 'dart:ffi';
 import 'dart:typed_data';
 import 'package:ffi/ffi.dart';
 import 'dart:io';
 import 'flserial_bindings_generated.dart';
+import 'package:event/event.dart';
 
 const String _libName = 'flserial';
 
@@ -42,8 +44,6 @@ Pointer<Char> stringToNativeInt8(String str, {Allocator allocator = calloc}) {
   return result.cast<Char>();
 }
 
-
-
 Pointer<Char> int8ListToPointerInt8(Uint8List units,
     {Allocator allocator = calloc}) {
   final pointer = allocator<Uint8>(units.length + 1); //blob
@@ -60,36 +60,60 @@ Int8List nativeInt8ToInt8List(Pointer<Int8> pointer) {
   return list;
 }
 
-enum fLOpenStatus {
-  Open,
-  Closed,
-  Error,
+enum FLOpenStatus {
+  open,
+  closed,
+  error,
+}
+
+class FlSerialEventArgs extends EventArgs {
+  FlSerialEventArgs(len, dataRecivied);
+  int len = 0;
+  Uint8List dataRecivied = Uint8List(0);
 }
 
 
 class FlSerial {
   int flh = -1;
-  
+  List<int> readBuff = List.empty(growable: true);
+  late Timer _timer;
+  Event<FlSerialEventArgs> onSerialData = Event<FlSerialEventArgs>();
+
   int init () {
     return _bindings.fl_init(1);
   }
  
-  fLOpenStatus openPort(String portname, int baudrate) {
+  FLOpenStatus openPort(String portname, int baudrate) {
+    onSerialData = Event<FlSerialEventArgs>();
     flh = _bindings.fl_open(flh, stringToNativeInt8(portname), baudrate);
     return isOpen();
   }
 
 
-  fLOpenStatus isOpen() {
+  FLOpenStatus isOpen() {
+
+    if(flh < 0) {
+      return FLOpenStatus.closed;
+    }    
+
     int error = _bindings.fl_ctrl(flh, flCtrl.FL_CTRL_LAST_ERROR, -1);
     if(error > 0) {
-      return fLOpenStatus.Error;
+      return FLOpenStatus.error;
     }
     int nres = _bindings.fl_ctrl(flh, flCtrl.FL_CTRL_IS_PORT_OPEN, -1);
     if(nres == 0) {
-      return fLOpenStatus.Closed;
+      return FLOpenStatus.closed;
     }
-    return fLOpenStatus.Open;
+
+
+    _timer = Timer.periodic(Duration(milliseconds: 100), (timer) async {
+      await _readProcess();
+      if(readBuff.isNotEmpty) {
+        onSerialData.broadcast(FlSerialEventArgs(readBuff.length, Uint8List(0) /*readBuff.toList()*/));
+    }
+    },);
+    
+    return FLOpenStatus.open;
   }
 
   String getLastError() {
@@ -101,7 +125,7 @@ class FlSerial {
         strres = "0: None";
         break;
       case flError.FL_ERROR_PORT_ALLREADY_OPEN:
-        strres = res.toString() + ": Port allready open";
+        strres = "$res: Port allready open";
         break;
       default:
         strres = "-1: Unknow error";
@@ -110,8 +134,13 @@ class FlSerial {
     return strres;
   }
 
+  Future<int> _readProcess() async {
+    Uint8List list = await _readList(64);
+    readBuff.addAll(list);
+    return readBuff.length;
+  }
 
-  Uint8List read(int len) {
+  Uint8List _readList(int len) {
     Allocator allocator = calloc;
     var result = allocator<Char>(len);
     int intres = _bindings.fl_read(flh, len, result);
@@ -121,8 +150,26 @@ class FlSerial {
     }
       
     final ptrNameCodeUnits = result.cast<Uint8>();
-    var list = ptrNameCodeUnits.asTypedList(len);
+    var list = ptrNameCodeUnits.asTypedList(intres);
     return list;
+  }
+
+  Uint8List readList() {
+    Uint8List old = Uint8List(0);
+    if (readBuff.isNotEmpty) {
+      var len = readBuff.length;
+      old = Uint8List.fromList(readBuff.sublist(0, len));
+      readBuff.removeRange(0, len);
+
+    } 
+    return old;
+  }
+
+  int read() {
+    if (readBuff.isNotEmpty) {
+      return readBuff.removeAt(0);
+    }
+    return -1;
   }
 
   int write(int len, Uint8List data) {
@@ -130,6 +177,7 @@ class FlSerial {
   }
 
   int closePort() {
+    _timer.cancel();
     return _bindings.fl_close(flh);
   }
 
@@ -139,6 +187,10 @@ class FlSerial {
 
   int free() {
     return _bindings.fl_free();
+  }
+
+  int getTickCount() {
+    return new DateTime.now().millisecond;
   }
 
 

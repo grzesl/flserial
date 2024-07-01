@@ -15,9 +15,10 @@ class MyApp extends StatefulWidget {
 }
 
 class _MyAppState extends State<MyApp> {
-  late int sumResult = 0;
   late FlSerial serial;
   String resultMsg = "Try to use button";
+  int totalLen = 0;
+  int readTime = 0;
   @override
   void initState() {
     super.initState();
@@ -40,29 +41,52 @@ class _MyAppState extends State<MyApp> {
             child: Column(
               children: [
                 TextButton(onPressed: () {
-
-                if (serial.openPort("COM3", 115200) == fLOpenStatus.Error)
+                  
+                if(serial.isOpen() == FLOpenStatus.open)
+                {
+                  setState(() {
+                    resultMsg = "Port allready open...";
+                    totalLen = 0;
+                  });
+                }
+                else if (serial.openPort("COM3", 115200) == FLOpenStatus.error)
                 {
 
                   setState(() {
-                    resultMsg = "Port not open because error " + serial.getLastError();
+                    resultMsg = "Port not open because error ${serial.getLastError()}";
                   });
 
                   serial.closePort(); // free
                 } else {
-                 int wrt = serial.write(1, Uint8List.fromList({0x10}.toList()));
 
-                 if (wrt > 0) {
-                  Uint8List read = serial.read(1);
-                  if(read.isNotEmpty ) {
-                    print(read);
-                  }
-                  setState(() {
-                    resultMsg = "Success read byte: " + read.toString();
+                  serial.onSerialData.subscribe((args) {
+                    int duration = serial.getTickCount() - readTime;
+                    var list  = serial.readList();
+
+                    setState(() {
+                    totalLen += list.length;
+                    resultMsg += "Serial port read: $list time: $duration [ms] len: ${list.length} [B] total: $totalLen";
                   });
-                 }
+                 },);
 
-                 serial.closePort();                
+                  setState(() {
+                    resultMsg = "Port open";
+                  });
+
+                }
+                }, child: Text("Otwórz port")),
+                TextButton(onPressed: () {
+
+                if(serial.isOpen() == FLOpenStatus.open) {
+
+
+                 Uint8List send = Uint8List(1000);
+                 for (int i=0;i< 1000;i++)
+                 {
+                  send[i] = 0x10;
+                 }
+                 serial.write(send.length, send);     
+                 readTime = serial.getTickCount();            
                 }
                   
                 }, child: const Text("Run serial test")),
@@ -71,13 +95,6 @@ class _MyAppState extends State<MyApp> {
                   textAlign: TextAlign.center,
                 ),
                 spacerSmall,
-                Text(
-                  'sum(1, 2) = $sumResult',
-                  style: textStyle,
-                  textAlign: TextAlign.center,
-                ),
-                spacerSmall,
-             
               ],
             ),
           ),
