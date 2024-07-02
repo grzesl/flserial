@@ -87,6 +87,27 @@ class FlSerial {
     return _bindings.fl_init(16);
   }
 
+  static List<String>  listPorts() {
+    List<String> list = List<String>.empty(growable: true);
+
+    Allocator allocator = calloc;
+    var result = allocator<Char>(1024);
+
+    for(int i=0;i < 255;i++){
+
+      int len = _bindings.fl_ports(i, 1024, result);
+     if(  len > 0)
+     {
+      String resultStr = result.cast<Utf8>()
+        .toDartString(length: len);
+      list.add(resultStr);
+     } else {
+      break;
+     }
+    }
+    return  list;
+  }
+
   int _checkFLH(int handler) {
     if (handler >=0 && handler < MAX_PORT_COUNT){
       return FlError.FL_ERROR_OK;

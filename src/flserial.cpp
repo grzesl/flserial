@@ -56,6 +56,18 @@ FFI_PLUGIN_EXPORT int fl_open (int flh, char *portname, int baudrate) {
     return porth; 
 }
 
+FFI_PLUGIN_EXPORT int fl_ports (int index, int buffsize, char *buff) {
+    auto list = serial::list_ports();
+    if(serial::list_ports().size() <= index)
+    {
+        return 0;
+    } else 
+    {
+        serial::PortInfo info = list[index];
+        return sprintf_s(buff, buffsize, "%s - %s - %s", info.port.c_str(), info.description.c_str(), info.hardware_id.c_str());
+    }
+}
+
 FFI_PLUGIN_EXPORT int fl_read (int flh, int len, char *buff) {
     FlSerial *port = flserial_tab[flh];
     int res = 0;

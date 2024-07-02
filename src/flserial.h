@@ -59,6 +59,7 @@ extern "C" {
 #endif
 
 FFI_PLUGIN_EXPORT int fl_init (int portCount);
+FFI_PLUGIN_EXPORT int fl_ports (int index, int buffsize, char *buff);
 FFI_PLUGIN_EXPORT int fl_open (int flh, char *portname, int baudrate);
 FFI_PLUGIN_EXPORT int fl_read (int flh, int len, char *buff);
 FFI_PLUGIN_EXPORT int fl_write (int flh, int len, char *data);

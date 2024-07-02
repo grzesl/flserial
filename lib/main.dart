@@ -41,7 +41,7 @@ class _MyAppState extends State<MyApp> {
             child: Column(
               children: [
                 TextButton(onPressed: () {
-                  
+                  resultMsg = FlSerial.listPorts()[0];
                 if(serial.isOpen() == FLOpenStatus.open)
                 {
                   setState(() {

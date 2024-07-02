@@ -39,6 +39,25 @@ class FlserialBindings {
       _lookup<ffi.NativeFunction<ffi.Int Function(ffi.Int)>>('fl_init');
   late final _fl_init = _fl_initPtr.asFunction<int Function(int)>();
 
+  int fl_ports(
+    int index,
+    int buffsize,
+    ffi.Pointer<ffi.Char> buff,
+  ) {
+    return _fl_ports(
+      index,
+      buffsize,
+      buff,
+    );
+  }
+
+  late final _fl_portsPtr = _lookup<
+      ffi.NativeFunction<
+          ffi.Int Function(
+              ffi.Int, ffi.Int, ffi.Pointer<ffi.Char>)>>('fl_ports');
+  late final _fl_ports =
+      _fl_portsPtr.asFunction<int Function(int, int, ffi.Pointer<ffi.Char>)>();
+
   int fl_open(
     int flh,
     ffi.Pointer<ffi.Char> portname,
