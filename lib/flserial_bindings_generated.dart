@@ -134,7 +134,7 @@ class FlserialBindings {
   late final _fl_free = _fl_freePtr.asFunction<int Function()>();
 }
 
-abstract class flCtrl {
+abstract class FlCtrl {
   static const int FL_CTRL_LAST_ERROR = 0;
   static const int FL_CTRL_IS_PORT_OPEN = 1;
   static const int FL_CTRL_BREAK = 2;
@@ -142,15 +142,31 @@ abstract class flCtrl {
   static const int FL_CTRL_GET_CTS = 4;
   static const int FL_CTRL_SET_DTR = 5;
   static const int FL_CTRL_GET_DSR = 6;
-  static const int FL_CTRL_LAST = 7;
+  static const int FL_CTRL_SET_BYTESIZE_5 = 7;
+  static const int FL_CTRL_SET_BYTESIZE_6 = 8;
+  static const int FL_CTRL_SET_BYTESIZE_7 = 9;
+  static const int FL_CTRL_SET_BYTESIZE_8 = 10;
+  static const int FL_CTRL_SET_PARITY_NONE = 11;
+  static const int FL_CTRL_SET_PARITY_ODD = 12;
+  static const int FL_CTRL_SET_PARITY_EVEN = 13;
+  static const int FL_CTRL_SET_PARITY_MARK = 14;
+  static const int FL_CTRL_SET_PARITY_SPACE = 15;
+  static const int FL_CTRL_SET_STOPBITS_ONE = 16;
+  static const int FL_CTRL_SET_STOPBITS_TWO = 17;
+  static const int FL_CTRL_SET_STOPBITS_ONE_POINT_FIVE = 18;
+  static const int FL_CTRL_SET_FLOWCONTROL_NONE = 19;
+  static const int FL_CTRL_SET_FLOWCONTROL_HARDWARE = 20;
+  static const int FL_CTRL_SET_FLOWCONTROL_SOFTWARE = 21;
+  static const int FL_CTRL_LAST = 22;
 }
 
-abstract class flError {
+abstract class FlError {
   static const int FL_ERROR_OK = 0;
   static const int FL_ERROR_UNKNOW = 1;
   static const int FL_ERROR_PORT_ALLREADY_OPEN = 2;
-  static const int FL_ERROR_HANDLER = 3;
-  static const int FL_ERROR_LAST = 4;
+  static const int FL_ERROR_IO = 3;
+  static const int FL_ERROR_HANDLER = 4;
+  static const int FL_ERROR_LAST = 5;
 }
 
 const int MAX_PORT_NAME_LEN = 512;

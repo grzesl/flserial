@@ -84,18 +84,20 @@ class FlSerial {
   bool prevDSR = false;
 
   int init () {
-    return _bindings.fl_init(1);
+    return _bindings.fl_init(16);
   }
 
   int _checkFLH(int handler) {
     if (handler >=0 && handler < MAX_PORT_COUNT){
-      return flError.FL_ERROR_OK;
+      return FlError.FL_ERROR_OK;
     }
-    throw FlserialException(flError.FL_ERROR_HANDLER);
+    throw FlserialException(FlError.FL_ERROR_HANDLER);
   }
  
   FLOpenStatus openPort(String portname, int baudrate) {
     onSerialData = Event<FlSerialEventArgs>();
+    prevCTS = false;
+    prevDSR = false;
     flh = _bindings.fl_open(flh, stringToNativeInt8(portname), baudrate);
     return isOpen();
   }
@@ -107,11 +109,11 @@ class FlSerial {
       return FLOpenStatus.closed;
     }    
 
-    int error = _bindings.fl_ctrl(flh, flCtrl.FL_CTRL_LAST_ERROR, -1);
+    int error = _bindings.fl_ctrl(flh, FlCtrl.FL_CTRL_LAST_ERROR, -1);
     if(error > 0) {
       return FLOpenStatus.error;
     }
-    int nres = _bindings.fl_ctrl(flh, flCtrl.FL_CTRL_IS_PORT_OPEN, -1);
+    int nres = _bindings.fl_ctrl(flh, FlCtrl.FL_CTRL_IS_PORT_OPEN, -1);
     if(nres == 0) {
       return FLOpenStatus.closed;
     }
@@ -123,8 +125,8 @@ class FlSerial {
           _timer.cancel();
           return;
         }
-        await _readProcess();
-        if (readBuff.isNotEmpty) {
+        int read = await _readProcess();
+        if (read > 0) {
           onSerialData.broadcast(FlSerialEventArgs(
               readBuff.length, Uint8List(0), prevCTS, prevDSR));
         }
@@ -138,14 +140,14 @@ class FlSerial {
 
     _checkFLH(flh);
 
-    int res  = _bindings.fl_ctrl(flh, flCtrl.FL_CTRL_LAST_ERROR, -1);
+    int res  = _bindings.fl_ctrl(flh, FlCtrl.FL_CTRL_LAST_ERROR, -1);
     String strres = "";
 
     switch(res) {
-      case flError.FL_ERROR_OK:
+      case FlError.FL_ERROR_OK:
         strres = "0: None";
         break;
-      case flError.FL_ERROR_PORT_ALLREADY_OPEN:
+      case FlError.FL_ERROR_PORT_ALLREADY_OPEN:
         strres = "$res: Port allready open";
         break;
       default:
@@ -157,8 +159,10 @@ class FlSerial {
 
   Future<int> _readProcess() async {
     _checkFLH(flh);
+    _readLineStatus();
+
     Uint8List list = _readList(1024);
-     _readLineStatus();
+     
     readBuff.addAll(list);
     return Future<int>.value( readBuff.length );
   }
@@ -196,14 +200,19 @@ class FlSerial {
   }
 
   Uint8List readList() {
+    return readListLen(readBuff.length);
+  }
+
+  Uint8List readListLen(int len) {
     _checkFLH(flh);
 
     Uint8List old = Uint8List(0);
     if (readBuff.isNotEmpty) {
-      var len = readBuff.length;
+      if(len > readBuff.length){
+        len = readBuff.length;
+      }
       old = Uint8List.fromList(readBuff.sublist(0, len));
       readBuff.removeRange(0, len);
-
     } 
     return old;
   }
@@ -226,7 +235,7 @@ class FlSerial {
   int closePort() {
     _checkFLH(flh);
     sleep(const Duration(milliseconds: 1));
-    _bindings.fl_ctrl(flh, flCtrl.FL_CTRL_BREAK, 0);
+    _bindings.fl_ctrl(flh, FlCtrl.FL_CTRL_BREAK, 0);
     _bindings.fl_close(flh);
      flh = -1;
     return flh;
@@ -239,25 +248,99 @@ class FlSerial {
 
   int setRTS(bool value){
     _checkFLH(flh);
-    return _bindings.fl_ctrl(flh,flCtrl.FL_CTRL_SET_RTS,value?1:0);
+    return _bindings.fl_ctrl(flh,FlCtrl.FL_CTRL_SET_RTS,value?1:0);
   }
 
-  bool getCTS(){
+  bool getCTS() {
     _checkFLH(flh);
-    return _bindings.fl_ctrl(flh,flCtrl.FL_CTRL_GET_CTS,0) > 0? true:false;
+    return _bindings.fl_ctrl(flh, FlCtrl.FL_CTRL_GET_CTS, 0) > 0 ? true : false;
   }
 
-
-  int setDTR(bool value){
+  int setDTR(bool value) {
     _checkFLH(flh);
-    return _bindings.fl_ctrl(flh,flCtrl.FL_CTRL_SET_DTR,value?1:0);
+    return _bindings.fl_ctrl(flh, FlCtrl.FL_CTRL_SET_DTR, value ? 1 : 0);
   }
 
-  bool getDSR(){
+  bool getDSR() {
     _checkFLH(flh);
-    return _bindings.fl_ctrl(flh,flCtrl.FL_CTRL_GET_DSR,0) > 0? true:false;
+    return _bindings.fl_ctrl(flh, FlCtrl.FL_CTRL_GET_DSR, 0) > 0 ? true : false;
   }
 
+  int setByteSize5() {
+    _checkFLH(flh);
+    return _bindings.fl_ctrl(flh, FlCtrl.FL_CTRL_SET_BYTESIZE_5, 0);
+  }
+
+  int setByteSize6() {
+    _checkFLH(flh);
+    return _bindings.fl_ctrl(flh, FlCtrl.FL_CTRL_SET_BYTESIZE_6, 0);
+  }
+
+  int setByteSize7() {
+    _checkFLH(flh);     
+    return _bindings.fl_ctrl(flh, FlCtrl.FL_CTRL_SET_BYTESIZE_7, 0);
+  }
+
+  int setByteSize8() {
+    _checkFLH(flh);
+    return _bindings.fl_ctrl(flh, FlCtrl.FL_CTRL_SET_BYTESIZE_8, 0);
+  }
+
+  int setByteParityNone() {
+    _checkFLH(flh);
+    return _bindings.fl_ctrl(flh, FlCtrl.FL_CTRL_SET_PARITY_NONE, 0);
+  }
+
+  int setByteParityOdd() {
+    _checkFLH(flh);
+    return _bindings.fl_ctrl(flh, FlCtrl.FL_CTRL_SET_PARITY_ODD, 0);
+  }
+
+  int setByteParityEven() {
+    _checkFLH(flh);
+    return _bindings.fl_ctrl(flh, FlCtrl.FL_CTRL_SET_PARITY_EVEN, 0);
+  }
+
+  int setByteParityMark() {
+    _checkFLH(flh);
+    return _bindings.fl_ctrl(flh, FlCtrl.FL_CTRL_SET_PARITY_MARK, 0);
+  }
+
+  int setByteParitySpace() {
+    _checkFLH(flh);
+    return _bindings.fl_ctrl(flh, FlCtrl.FL_CTRL_SET_PARITY_SPACE, 0);
+  }
+
+  int setStopBits1() {
+    _checkFLH(flh);
+    return _bindings.fl_ctrl(flh, FlCtrl.FL_CTRL_SET_STOPBITS_ONE, 0);
+  }
+
+  int setStopBits1_5() {
+    _checkFLH(flh);
+    return _bindings.fl_ctrl(
+        flh, FlCtrl.FL_CTRL_SET_STOPBITS_ONE_POINT_FIVE, 0);
+  }
+
+  int setStopBits2() {
+    _checkFLH(flh);
+    return _bindings.fl_ctrl(flh, FlCtrl.FL_CTRL_SET_STOPBITS_TWO, 0);
+  }
+
+  int setFlowControlNone() {
+    _checkFLH(flh);
+    return _bindings.fl_ctrl(flh, FlCtrl.FL_CTRL_SET_FLOWCONTROL_NONE, 0);
+  }
+
+  int setFlowControlHardware() {
+    _checkFLH(flh);
+    return _bindings.fl_ctrl(flh, FlCtrl.FL_CTRL_SET_FLOWCONTROL_HARDWARE, 0);
+  }
+
+  int setFlowControlSoftware() {
+    _checkFLH(flh);
+    return _bindings.fl_ctrl(flh, FlCtrl.FL_CTRL_SET_FLOWCONTROL_SOFTWARE, 0);
+  }
 
   int free() {
     return _bindings.fl_free();

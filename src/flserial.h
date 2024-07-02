@@ -19,7 +19,7 @@
 #define MAX_PORT_NAME_LEN 512
 #define MAX_PORT_COUNT 128
 
-enum flCtrl {
+typedef enum FlCtrl {
   FL_CTRL_LAST_ERROR,
   FL_CTRL_IS_PORT_OPEN,
   FL_CTRL_BREAK,
@@ -27,16 +27,32 @@ enum flCtrl {
   FL_CTRL_GET_CTS,
   FL_CTRL_SET_DTR,
   FL_CTRL_GET_DSR,
-  FL_CTRL_LAST
-};
+  FL_CTRL_SET_BYTESIZE_5,
+  FL_CTRL_SET_BYTESIZE_6,
+  FL_CTRL_SET_BYTESIZE_7,
+  FL_CTRL_SET_BYTESIZE_8,
+  FL_CTRL_SET_PARITY_NONE,
+  FL_CTRL_SET_PARITY_ODD,
+  FL_CTRL_SET_PARITY_EVEN,
+  FL_CTRL_SET_PARITY_MARK,
+  FL_CTRL_SET_PARITY_SPACE,
+  FL_CTRL_SET_STOPBITS_ONE,
+  FL_CTRL_SET_STOPBITS_TWO,
+  FL_CTRL_SET_STOPBITS_ONE_POINT_FIVE,
+  FL_CTRL_SET_FLOWCONTROL_NONE,
+  FL_CTRL_SET_FLOWCONTROL_HARDWARE,
+  FL_CTRL_SET_FLOWCONTROL_SOFTWARE,
+  FL_CTRL_LAST,
+} FlCtrl;
 
-enum flError {
+typedef enum FlError {
     FL_ERROR_OK,
     FL_ERROR_UNKNOW,
     FL_ERROR_PORT_ALLREADY_OPEN,
+    FL_ERROR_IO,
     FL_ERROR_HANDLER,
     FL_ERROR_LAST,
-};
+} FlError;
 
 #ifdef __cplusplus
 extern "C" {
@@ -47,7 +63,7 @@ FFI_PLUGIN_EXPORT int fl_open (int flh, char *portname, int baudrate);
 FFI_PLUGIN_EXPORT int fl_read (int flh, int len, char *buff);
 FFI_PLUGIN_EXPORT int fl_write (int flh, int len, char *data);
 FFI_PLUGIN_EXPORT int fl_close (int flh);
-FFI_PLUGIN_EXPORT int fl_ctrl (int flh, enum flCtrl param, int value);
+FFI_PLUGIN_EXPORT int fl_ctrl (int flh, FlCtrl param, int value);
 FFI_PLUGIN_EXPORT int fl_free ();
 
 
