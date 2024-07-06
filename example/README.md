@@ -2,15 +2,34 @@
 
 Demonstrates how to use the flserial plugin.
 
-## Getting Started
 
-This project is a starting point for a Flutter application.
 
-A few resources to get you started if this is your first Flutter project:
+```
+import 'package:flserial/flserial.dart';
 
-- [Lab: Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
-- [Cookbook: Useful Flutter samples](https://docs.flutter.dev/cookbook)
+late  FlSerial serial;
 
-For help getting started with Flutter development, view the
-[online documentation](https://docs.flutter.dev/), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
+(...)
+ @override
+  void initState() {
+    super.initState();
+    serial = FlSerial();
+    serial.init();
+  }
+(...)
+
+if(serial.openPort("COM3", 115200) == FLOpenStatus.open)
+{
+                    serial.onSerialData.subscribe((args) {
+                        var list  = serial.readList();
+                        resultMsg += "Serial port read: $list time: $duration [ms] len: ${list.length} [B] total: $totalLen CTS: ${args!.cts} DSR: ${args.dsr}\n";
+                    });
+
+                    Uint8List send = Uint8List(1);
+                    send[0] = 0x10;
+                    serial.write(send.length, send);  
+},);
+
+}
+
+```
