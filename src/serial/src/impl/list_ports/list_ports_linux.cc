@@ -16,8 +16,13 @@
 #include <cstdio>
 #include <cstdarg>
 #include <cstdlib>
-
+#ifdef ANDROID
+#include "../cglob.h"
+#else
 #include <glob.h>
+#define glob cglob
+#define globfree cglobfree
+#endif
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <unistd.h>
@@ -52,15 +57,15 @@ glob(const vector<string>& patterns)
 	if(patterns.size() == 0)
 	    return paths_found;
 
-    glob_t glob_results;
+    cglob_t glob_results;
 
-    int glob_retval = glob(patterns[0].c_str(), 0, NULL, &glob_results);
+    int glob_retval = cglob(patterns[0].c_str(), 0, NULL, &glob_results);
 
     vector<string>::const_iterator iter = patterns.begin();
 
     while(++iter != patterns.end())
     {
-        glob_retval = glob(iter->c_str(), GLOB_APPEND, NULL, &glob_results);
+        glob_retval = cglob(iter->c_str(), GLOB_APPEND, NULL, &glob_results);
     }
 
     for(int path_index = 0; path_index < glob_results.gl_pathc; path_index++)
@@ -68,7 +73,7 @@ glob(const vector<string>& patterns)
         paths_found.push_back(glob_results.gl_pathv[path_index]);
     }
 
-    globfree(&glob_results);
+    cglobfree(&glob_results);
 
     return paths_found;
 }

@@ -87,6 +87,8 @@ Serial::SerialImpl::open ()
     }
   }
 
+
+
   reconfigurePort();
   is_open_ = true;
 }
