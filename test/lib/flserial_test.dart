@@ -14,8 +14,9 @@ void main() {
       return DynamicLibrary.open('$libPath$libName.framework/$libName');
     }
     if (Platform.isAndroid || Platform.isLinux) {
-      libPath = '../../build/linux/x64/release/shared/'; 
-      return DynamicLibrary.open('${libPath}lib$libName.so');
+      libPath = '/home/runner/work/flserial/flserial/build/linux/x64/release/shared/libflserial.so'; 
+      DynamicLibrary.open(libPath);
+      //return DynamicLibrary.open('${libPath}lib$libName.so');
     }
     if (Platform.isWindows) {
       return DynamicLibrary.open('$libPath$libName.dll');
