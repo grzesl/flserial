@@ -40,12 +40,12 @@ flutter:
     platforms:
       android:
         ffiPlugin: true
-      ios:
-        ffiPlugin: false #not tested
+      #ios:
+      #  ffiPlugin: false 
       linux:
         ffiPlugin: true
-      macos:
-        ffiPlugin: false #not tested
+      #macos:
+      #  ffiPlugin: false 
       windows:
         ffiPlugin: true
 
