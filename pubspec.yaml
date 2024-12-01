@@ -1,6 +1,6 @@
 name: flserial
-description: "A new Flutter FFI plugin project."
-version: 0.0.1
+description: "Flutter Serial Port Plugin FFI based on great C library. Useful to communicate with RS232 devices."
+version: 0.1.2
 homepage: "https://github.com/grzesl/flserial"
 
 environment:
@@ -41,11 +41,11 @@ flutter:
       android:
         ffiPlugin: true
       ios:
-        ffiPlugin: true
+        ffiPlugin: false #not tested
       linux:
         ffiPlugin: true
       macos:
-        ffiPlugin: true
+        ffiPlugin: false #not tested
       windows:
         ffiPlugin: true
 
