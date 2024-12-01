@@ -5,7 +5,7 @@ import 'package:test/test.dart';
 import 'package:flserial/flserial.dart';
 
 void main() {
-  DynamicLibrary.open('flserial.dll');
+  DynamicLibrary.open('lib/flserial.so');
 
   test('FLSerial status should be closed', () {
     final port = FlSerial();
