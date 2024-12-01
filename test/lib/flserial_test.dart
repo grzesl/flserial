@@ -11,8 +11,8 @@ void main() {
 
   if (kReleaseMode) {
     // I'm on release mode, absolute linking
-    final String local_lib = path.join('data',  'flutter_assets', 'assets', 'flserial.dll');
-    String pathToLib = path.join(Directory(Platform.resolvedExecutable).parent.path, local_lib);
+    final String localLib = path.join('data',  'flutter_assets', 'assets', 'flserial.dll');
+    String pathToLib = path.join(Directory(Platform.resolvedExecutable).parent.path, localLib);
     DynamicLibrary.open(pathToLib);
   } else {
     // I'm on debug mode, local linking
