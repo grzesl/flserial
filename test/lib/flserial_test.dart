@@ -1,17 +1,18 @@
 import 'dart:ffi';
 import 'dart:io';
 
-import 'package:flserial/flserial.dart';
 import 'package:flutter/foundation.dart';
+import 'package:path/path.dart' as path;
 import 'package:test/test.dart';
-import 'package:path/path.dart' as Path;
+
+import 'package:flserial/flserial.dart';
 
 void main() {
 
   if (kReleaseMode) {
     // I'm on release mode, absolute linking
-    final String local_lib = Path.join('data',  'flutter_assets', 'assets', 'flserial.dll');
-    String pathToLib = Path.join(Directory(Platform.resolvedExecutable).parent.path, local_lib);
+    final String local_lib = path.join('data',  'flutter_assets', 'assets', 'flserial.dll');
+    String pathToLib = path.join(Directory(Platform.resolvedExecutable).parent.path, local_lib);
     DynamicLibrary lib = DynamicLibrary.open(pathToLib);
   } else {
     // I'm on debug mode, local linking
