@@ -20,8 +20,8 @@
 #include "../cglob.h"
 #else
 #include <glob.h>
-#define glob cglob
-#define globfree cglobfree
+#define  cglob glob
+#define  cglobfree globfree
 #endif
 #include <sys/types.h>
 #include <sys/stat.h>
