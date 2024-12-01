@@ -13,11 +13,11 @@ void main() {
     // I'm on release mode, absolute linking
     final String local_lib = path.join('data',  'flutter_assets', 'assets', 'flserial.dll');
     String pathToLib = path.join(Directory(Platform.resolvedExecutable).parent.path, local_lib);
-    DynamicLibrary lib = DynamicLibrary.open(pathToLib);
+    DynamicLibrary.open(pathToLib);
   } else {
     // I'm on debug mode, local linking
     var path = Directory.current.path;
-    DynamicLibrary lib = DynamicLibrary.open('$path/assets/flserial.dll');
+    DynamicLibrary.open('$path/assets/flserial.dll');
   }
   
   test('FLSerial status should be closed', () {
