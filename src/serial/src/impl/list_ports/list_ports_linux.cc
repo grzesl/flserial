@@ -22,6 +22,7 @@
 #include <glob.h>
 #define  cglob glob
 #define  cglobfree globfree
+#define  cglob_t glob_t
 #endif
 #include <sys/types.h>
 #include <sys/stat.h>
