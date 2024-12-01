@@ -31,8 +31,8 @@ jobs:
       - name: Build release
         run: flutter build linux --release
 
-      - name: List files in the repository
-        run: ls -lR ${{ github.workspace }}/build/linux
+      #- name: List files in the repository
+      #  run: ls -lR ${{ github.workspace }}/build/linux
 
 
       - name: Run tests

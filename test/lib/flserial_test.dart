@@ -11,14 +11,14 @@ void main() {
   /// The dynamic library in which the symbols for [FlserialBindings] can be found.
   final DynamicLibrary dylib = () {
     if (Platform.isMacOS || Platform.isIOS) {
-      return DynamicLibrary.open('$libPath.$libName.framework/$libName');
+      return DynamicLibrary.open('$libPath$libName.framework/$libName');
     }
     if (Platform.isAndroid || Platform.isLinux) {
-      libPath = '../build/linux/x64/release/shared/'; 
-      return DynamicLibrary.open('$libPath.lib$libName.so');
+      libPath = '../../build/linux/x64/release/shared/'; 
+      return DynamicLibrary.open('${libPath}lib$libName.so');
     }
     if (Platform.isWindows) {
-      return DynamicLibrary.open('$libPath.$libName.dll');
+      return DynamicLibrary.open('$libPath$libName.dll');
     }
     throw UnsupportedError('Unknown platform: ${Platform.operatingSystem}');
   }();
