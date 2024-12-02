@@ -77,7 +77,6 @@ class FlSerialEventArgs {
 class FlSerial {
   int flh = -1;
   List<int> readBuff = List.empty(growable: true);
-  late Timer _timer;
   bool prevCTS = false;
   bool prevDSR = false;
   var onSerialData = StreamController<FlSerialEventArgs>();
@@ -87,7 +86,8 @@ class FlSerial {
   }
 
   void setCallback(int flh, {required DartflcallbackFunction callback}) {
-    final nativeCallable = NativeCallable<flcallbackFunction>.listener(callback);
+    final nativeCallable =
+        NativeCallable<flcallbackFunction>.listener(callback);
     _bindings.fl_set_callback(flh, nativeCallable.nativeFunction);
   }
 
@@ -121,7 +121,8 @@ class FlSerial {
     prevCTS = false;
     prevDSR = false;
     flh = _bindings.fl_open(flh, stringToNativeInt8(portname), baudrate);
-    setCallback(flh,
+    setCallback(
+      flh,
       callback: (flh, attrs) async {
         int read = await _readProcess();
         if (read > 0) {
