@@ -39,6 +39,22 @@ class FlserialBindings {
       _lookup<ffi.NativeFunction<ffi.Int Function(ffi.Int)>>('fl_init');
   late final _fl_init = _fl_initPtr.asFunction<int Function(int)>();
 
+  int fl_set_callback(
+    int flh,
+    flcallback cb,
+  ) {
+    return _fl_set_callback(
+      flh,
+      cb,
+    );
+  }
+
+  late final _fl_set_callbackPtr =
+      _lookup<ffi.NativeFunction<ffi.Int Function(ffi.Int, flcallback)>>(
+          'fl_set_callback');
+  late final _fl_set_callback =
+      _fl_set_callbackPtr.asFunction<int Function(int, flcallback)>();
+
   int fl_ports(
     int index,
     int buffsize,
@@ -188,6 +204,11 @@ abstract class FlError {
   static const int FL_ERROR_HANDLER = 4;
   static const int FL_ERROR_LAST = 5;
 }
+
+typedef flcallback = ffi.Pointer<ffi.NativeFunction<flcallbackFunction>>;
+typedef flcallbackFunction = ffi.Void Function(
+    ffi.UnsignedInt, ffi.UnsignedInt);
+typedef DartflcallbackFunction = void Function(int, int);
 
 const int MAX_PORT_NAME_LEN = 512;
 

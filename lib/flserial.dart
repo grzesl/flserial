@@ -1,4 +1,3 @@
-
 import 'dart:async';
 import 'dart:convert';
 import 'dart:ffi';
@@ -30,7 +29,6 @@ final DynamicLibrary _dylib = () {
 
 /// The bindings to the native functions in [_dylib].
 final FlserialBindings _bindings = FlserialBindings(_dylib);
-
 
 String nativeInt8ToString(Pointer<Int8> pointer, {bool allowMalformed = true}) {
   var ptrName = pointer.cast<Utf8>();
@@ -74,9 +72,8 @@ class FlSerialEventArgs extends EventArgs {
   FlSerialEventArgs(this.len, this.dataRecivied, this.cts, this.dsr);
   final int len;
   final Uint8List dataRecivied;
-  final bool cts , dsr;
+  final bool cts, dsr;
 }
-
 
 class FlSerial {
   int flh = -1;
@@ -86,63 +83,72 @@ class FlSerial {
   bool prevCTS = false;
   bool prevDSR = false;
 
-  int init () {
+  int init() {
     return _bindings.fl_init(16);
   }
 
-  static List<String>  listPorts() {
+  void setCallback(int flh, {required DartflcallbackFunction callback}) {
+    final nativeCallable = NativeCallable<flcallbackFunction>.listener(callback);
+    _bindings.fl_set_callback(flh, nativeCallable.nativeFunction);
+  }
+
+  static List<String> listPorts() {
     List<String> list = List<String>.empty(growable: true);
 
     Allocator allocator = calloc;
     var result = allocator<Char>(1024);
 
-    for(int i=0;i < 255;i++){
-
+    for (int i = 0; i < 255; i++) {
       int len = _bindings.fl_ports(i, 1024, result);
-     if(  len > 0)
-     {
-      String resultStr = result.cast<Utf8>()
-        .toDartString(length: len);
-      list.add(resultStr);
-     } else {
-      break;
-     }
+      if (len > 0) {
+        String resultStr = result.cast<Utf8>().toDartString(length: len);
+        list.add(resultStr);
+      } else {
+        break;
+      }
     }
-    return  list;
+    return list;
   }
 
   int _checkFLH(int handler) {
-    if (handler >=0 && handler < MAX_PORT_COUNT){
+    if (handler >= 0 && handler < MAX_PORT_COUNT) {
       return FlError.FL_ERROR_OK;
     }
     throw FlserialException(FlError.FL_ERROR_HANDLER);
   }
- 
+
   FLOpenStatus openPort(String portname, int baudrate) {
     onSerialData = Event<FlSerialEventArgs>();
     prevCTS = false;
     prevDSR = false;
     flh = _bindings.fl_open(flh, stringToNativeInt8(portname), baudrate);
+    setCallback(flh,
+      callback: (flh, attrs) async {
+        int read = await _readProcess();
+        if (read > 0) {
+          onSerialData.broadcast(FlSerialEventArgs(
+              readBuff.length, Uint8List(0), prevCTS, prevDSR));
+        }
+      },
+    );
     return isOpen();
   }
 
-
   FLOpenStatus isOpen() {
-
-    if(flh < 0) {
+    if (flh < 0) {
       return FLOpenStatus.closed;
-    }    
+    }
 
     int error = _bindings.fl_ctrl(flh, FlCtrl.FL_CTRL_LAST_ERROR, -1);
-    if(error > 0) {
+    if (error > 0) {
       return FLOpenStatus.error;
     }
     int nres = _bindings.fl_ctrl(flh, FlCtrl.FL_CTRL_IS_PORT_OPEN, -1);
-    if(nres == 0) {
+    if (nres == 0) {
       return FLOpenStatus.closed;
     }
 
-    bool isFirstRun = true;
+    /*bool isFirstRun = true;
     _timer = Timer.periodic(
       const Duration(milliseconds: 5),
       (timer) async {
@@ -150,32 +156,31 @@ class FlSerial {
           _timer.cancel();
           return;
         }
-        
-        if(isFirstRun) {
+
+        if (isFirstRun) {
           isFirstRun = false;
           return;
         }
 
-        int read = await  _readProcess();
-        
+        int read = await _readProcess();
+
         if (read > 0) {
           onSerialData.broadcast(FlSerialEventArgs(
               readBuff.length, Uint8List(0), prevCTS, prevDSR));
         }
       },
-    );
-    
+    );*/
+
     return FLOpenStatus.open;
   }
 
   String getLastError() {
-
     _checkFLH(flh);
 
-    int res  = _bindings.fl_ctrl(flh, FlCtrl.FL_CTRL_LAST_ERROR, -1);
+    int res = _bindings.fl_ctrl(flh, FlCtrl.FL_CTRL_LAST_ERROR, -1);
     String strres = "";
 
-    switch(res) {
+    switch (res) {
       case FlError.FL_ERROR_OK:
         strres = "0: None";
         break;
@@ -191,12 +196,12 @@ class FlSerial {
 
   Future<int> _readProcess() async {
     _checkFLH(flh);
-   // await _readLineStatus();
+    // await _readLineStatus();
 
     Uint8List list = await _readList(1024);
-     
+
     readBuff.addAll(list);
-    return Future<int>.value( readBuff.length );
+    return Future<int>.value(readBuff.length);
   }
 
   /*Future<int> _readLineStatus() async {
@@ -216,17 +221,17 @@ class FlSerial {
     return 0;
   }*/
 
-  Future< Uint8List> _readList(int len) async  {
+  Future<Uint8List> _readList(int len) async {
     _checkFLH(flh);
 
     Allocator allocator = calloc;
     var result = allocator<Char>(len);
     int intres = _bindings.fl_read(flh, len, result);
 
-    if(intres <=0) {
+    if (intres <= 0) {
       return Uint8List(0);
     }
-      
+
     final ptrNameCodeUnits = result.cast<Uint8>();
     var list = ptrNameCodeUnits.asTypedList(intres);
     return list;
@@ -241,12 +246,12 @@ class FlSerial {
 
     Uint8List old = Uint8List(0);
     if (readBuff.isNotEmpty) {
-      if(len > readBuff.length){
+      if (len > readBuff.length) {
         len = readBuff.length;
       }
       old = Uint8List.fromList(readBuff.sublist(0, len));
       readBuff.removeRange(0, len);
-    } 
+    }
     return old;
   }
 
@@ -262,7 +267,7 @@ class FlSerial {
   int write(int len, Uint8List data) {
     _checkFLH(flh);
 
-    return _bindings.fl_write(flh,  len, int8ListToPointerInt8(data));
+    return _bindings.fl_write(flh, len, int8ListToPointerInt8(data));
   }
 
   int closePort() {
@@ -270,18 +275,18 @@ class FlSerial {
     sleep(const Duration(milliseconds: 1));
     _bindings.fl_ctrl(flh, FlCtrl.FL_CTRL_BREAK, 0);
     _bindings.fl_close(flh);
-     flh = -1;
+    flh = -1;
     return flh;
   }
 
   int ctrl(int cmd, int value) {
     _checkFLH(flh);
-    return _bindings.fl_ctrl(flh,cmd,value);
+    return _bindings.fl_ctrl(flh, cmd, value);
   }
 
-  int setRTS(bool value){
+  int setRTS(bool value) {
     _checkFLH(flh);
-    return _bindings.fl_ctrl(flh,FlCtrl.FL_CTRL_SET_RTS,value?1:0);
+    return _bindings.fl_ctrl(flh, FlCtrl.FL_CTRL_SET_RTS, value ? 1 : 0);
   }
 
   bool getCTS() {
@@ -310,7 +315,7 @@ class FlSerial {
   }
 
   int setByteSize7() {
-    _checkFLH(flh);     
+    _checkFLH(flh);
     return _bindings.fl_ctrl(flh, FlCtrl.FL_CTRL_SET_BYTESIZE_7, 0);
   }
 

@@ -6,6 +6,10 @@ add_subdirectory(native_libs)
 
 include_directories(native_libs/include native_libs/include/serial)
 
+if(MSVC)
+    add_definitions(-D_CRT_SECURE_NO_WARNINGS)
+endif()
+
 add_library(flserial SHARED
   "flserial.cpp"
   "flserial.def"

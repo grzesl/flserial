@@ -1,9 +1,8 @@
 #include "flserial.h"
-#include "serial.h"
+#include "serial/serial.h"
 #include "tinycthread.h"
 #include "fifo.h"
 #include <iostream>
-
 
 typedef struct _flserial_
 {
@@ -14,6 +13,7 @@ typedef struct _flserial_
     thrd_t cthread;
     int breakThread;
     fifo_t *cfifo;
+    flcallback callback;
 } FlSerial;
 
 int SerialThread(void * aArg)
@@ -28,6 +28,7 @@ int SerialThread(void * aArg)
     res = (int)serial->serialport->read((uint8_t *)buff, (size_t)len);
     if(res > 0) {
         fifo_write(serial->cfifo, (const char*)buff, res);
+        serial->callback(0,res);
     }
   }
 
@@ -37,6 +38,13 @@ int SerialThread(void * aArg)
 FlSerial *flserial_tab[MAX_PORT_COUNT];
 int flserial_count;
 int current_port;
+
+FFI_PLUGIN_EXPORT int fl_set_callback(int flh, flcallback cb) 
+{
+    FlSerial *port = flserial_tab[flh];
+    port->callback = cb;
+    return 0;
+}
 
 FFI_PLUGIN_EXPORT int fl_init(int portCount)
 {

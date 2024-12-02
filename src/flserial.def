@@ -8,3 +8,4 @@ EXPORTS
     fl_ctrl
     fl_free
     fl_ports
+    fl_set_callback
