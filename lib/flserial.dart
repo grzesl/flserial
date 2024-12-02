@@ -199,7 +199,7 @@ class FlSerial {
     return Future<int>.value( readBuff.length );
   }
 
-  Future<int> _readLineStatus() async {
+  /*Future<int> _readLineStatus() async {
 
     _checkFLH(flh);
 
@@ -214,7 +214,7 @@ class FlSerial {
               readBuff.length, Uint8List(0), currCTS, currDSR));
     }
     return 0;
-  }
+  }*/
 
   Future< Uint8List> _readList(int len) async  {
     _checkFLH(flh);
