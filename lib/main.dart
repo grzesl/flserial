@@ -61,13 +61,13 @@ class _MyAppState extends State<MyApp> {
                   serial.closePort(); // free
                 } else {
 
-                  serial.onSerialData.subscribe((args) {
+                  serial.onSerialData.stream.listen((args) {
                     int duration = serial.getTickCount() - readTime;
                     var list  = serial.readList();
 
                     setState(() {
                     totalLen += list.length;
-                    resultMsg += "Serial port read: $list time: $duration [ms] len: ${list.length} [B] total: $totalLen CTS: ${args!.cts} DSR: ${args.dsr}\n";
+                    resultMsg += "Serial port read: $list time: $duration [ms] len: ${list.length} [B] total: $totalLen CTS: ${args.cts} DSR: ${args.dsr}\n";
                   });
                  },);
 

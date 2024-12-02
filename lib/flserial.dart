@@ -4,7 +4,6 @@ import 'dart:ffi';
 import 'dart:io';
 import 'dart:typed_data';
 
-import 'package:event/event.dart';
 import 'package:ffi/ffi.dart';
 
 import 'package:flserial/flserial_exception.dart';
@@ -68,7 +67,7 @@ enum FLOpenStatus {
   error,
 }
 
-class FlSerialEventArgs extends EventArgs {
+class FlSerialEventArgs {
   FlSerialEventArgs(this.len, this.dataRecivied, this.cts, this.dsr);
   final int len;
   final Uint8List dataRecivied;
@@ -79,9 +78,9 @@ class FlSerial {
   int flh = -1;
   List<int> readBuff = List.empty(growable: true);
   late Timer _timer;
-  var onSerialData = Event<FlSerialEventArgs>();
   bool prevCTS = false;
   bool prevDSR = false;
+  var onSerialData = StreamController<FlSerialEventArgs>();
 
   int init() {
     return _bindings.fl_init(16);
@@ -118,7 +117,7 @@ class FlSerial {
   }
 
   FLOpenStatus openPort(String portname, int baudrate) {
-    onSerialData = Event<FlSerialEventArgs>();
+    onSerialData = StreamController<FlSerialEventArgs>();
     prevCTS = false;
     prevDSR = false;
     flh = _bindings.fl_open(flh, stringToNativeInt8(portname), baudrate);
@@ -126,7 +125,7 @@ class FlSerial {
       callback: (flh, attrs) async {
         int read = await _readProcess();
         if (read > 0) {
-          onSerialData.broadcast(FlSerialEventArgs(
+          onSerialData.add(FlSerialEventArgs(
               readBuff.length, Uint8List(0), prevCTS, prevDSR));
         }
       },
@@ -147,30 +146,6 @@ class FlSerial {
     if (nres == 0) {
       return FLOpenStatus.closed;
     }
-
-    /*bool isFirstRun = true;
-    _timer = Timer.periodic(
-      const Duration(milliseconds: 5),
-      (timer) async {
-        if (flh < 0) {
-          _timer.cancel();
-          return;
-        }
-
-        if (isFirstRun) {
-          isFirstRun = false;
-          return;
-        }
-
-        int read = await _readProcess();
-
-        if (read > 0) {
-          onSerialData.broadcast(FlSerialEventArgs(
-              readBuff.length, Uint8List(0), prevCTS, prevDSR));
-        }
-      },
-    );*/
-
     return FLOpenStatus.open;
   }
 
@@ -272,6 +247,7 @@ class FlSerial {
 
   int closePort() {
     _checkFLH(flh);
+    onSerialData.close();
     sleep(const Duration(milliseconds: 1));
     _bindings.fl_ctrl(flh, FlCtrl.FL_CTRL_BREAK, 0);
     _bindings.fl_close(flh);

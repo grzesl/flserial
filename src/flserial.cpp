@@ -16,31 +16,33 @@ typedef struct _flserial_
     flcallback callback;
 } FlSerial;
 
-int SerialThread(void * aArg)
+int SerialThread(void *aArg)
 {
-  FlSerial *serial = (FlSerial*)aArg;
-  int res = 0;
-  uint8_t buff[1024];
-  size_t len = sizeof(buff);
+    FlSerial *serial = (FlSerial *)aArg;
+    int res = 0;
+    uint8_t buff[1024];
+    size_t len = sizeof(buff);
 
-  while(!serial->breakThread) {
+    while (!serial->breakThread)
+    {
 
-    res = (int)serial->serialport->read((uint8_t *)buff, (size_t)len);
-    if(res > 0) {
-        fifo_write(serial->cfifo, (const char*)buff, res);
-        serial->callback(0,res);
+        res = (int)serial->serialport->read((uint8_t *)buff, (size_t)len);
+        if (res > 0)
+        {
+            fifo_write(serial->cfifo, (const char *)buff, res);
+            serial->callback(0, res);
+        }
     }
-  }
 
-  return 0;
+    return 0;
 }
 
 FlSerial *flserial_tab[MAX_PORT_COUNT];
 int flserial_count;
 int current_port;
 
-FFI_PLUGIN_EXPORT int fl_set_callback(int flh, flcallback cb) 
-{
+FFI_PLUGIN_EXPORT int fl_set_callback(int flh, flcallback cb)
+{ 
     FlSerial *port = flserial_tab[flh];
     port->callback = cb;
     return 0;
@@ -62,7 +64,7 @@ FFI_PLUGIN_EXPORT int fl_open(int flh, char *portname, int baudrate)
 
     FlSerial *port = new FlSerial();
     port->breakThread = 0;
-    
+
     flserial_tab[porth] = port;
 
     strncpy(port->portname, portname, MAX_PORT_NAME_LEN);
@@ -81,8 +83,8 @@ FFI_PLUGIN_EXPORT int fl_open(int flh, char *portname, int baudrate)
     try
     {
         port->serialport->open();
-        port->cfifo = fifo_create(1024*50);
-        thrd_create(&port->cthread, SerialThread, (void*)port);
+        port->cfifo = fifo_create(1024 * 50);
+        thrd_create(&port->cthread, SerialThread, (void *)port);
     }
     catch (const std::exception &)
     {
@@ -115,8 +117,7 @@ FFI_PLUGIN_EXPORT int fl_read(int flh, int len, char *buff)
     size_t size = 0;
     int read = 0;
 
-    read = fifo_read(port->cfifo, buff,  len);
-
+    read = fifo_read(port->cfifo, buff, len);
 
     /*try
     {
