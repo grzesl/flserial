@@ -2,15 +2,15 @@ cmake_minimum_required(VERSION 3.14)
 
 project(flserial_library VERSION 0.1.1 LANGUAGES C CXX)
 
-add_subdirectory(serial)
+add_subdirectory(native_libs)
 
-include_directories(serial/include serial/include/serial)
+include_directories(native_libs/include native_libs/include/serial)
 
 add_library(flserial SHARED
   "flserial.cpp"
   "flserial.def"
 )
-target_link_libraries(flserial serial)
+target_link_libraries(flserial native_libs)
 
 set_target_properties(flserial PROPERTIES
   PUBLIC_HEADER flserial.h
