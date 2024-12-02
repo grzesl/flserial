@@ -191,7 +191,7 @@ class FlSerial {
 
   Future<int> _readProcess() async {
     _checkFLH(flh);
-    await _readLineStatus();
+   // await _readLineStatus();
 
     Uint8List list = await _readList(1024);
      
@@ -200,8 +200,6 @@ class FlSerial {
   }
 
   Future<int> _readLineStatus() async {
-
-    return 0;
 
     _checkFLH(flh);
 
