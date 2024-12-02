@@ -2,12 +2,15 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:ffi';
-import 'dart:typed_data';
-import 'package:ffi/ffi.dart';
-import 'package:flserial/flserial_exception.dart';
 import 'dart:io';
-import 'flserial_bindings_generated.dart';
+import 'dart:typed_data';
+
 import 'package:event/event.dart';
+import 'package:ffi/ffi.dart';
+
+import 'package:flserial/flserial_exception.dart';
+
+import 'flserial_bindings_generated.dart';
 
 const String _libName = 'flserial';
 
@@ -139,14 +142,22 @@ class FlSerial {
       return FLOpenStatus.closed;
     }
 
+    bool isFirstRun = true;
     _timer = Timer.periodic(
-      const Duration(milliseconds: 100),
+      const Duration(milliseconds: 5),
       (timer) async {
         if (flh < 0) {
           _timer.cancel();
           return;
         }
-        int read = await _readProcess();
+        
+        if(isFirstRun) {
+          isFirstRun = false;
+          return;
+        }
+
+        int read = await  _readProcess();
+        
         if (read > 0) {
           onSerialData.broadcast(FlSerialEventArgs(
               readBuff.length, Uint8List(0), prevCTS, prevDSR));
@@ -180,15 +191,18 @@ class FlSerial {
 
   Future<int> _readProcess() async {
     _checkFLH(flh);
-    _readLineStatus();
+    await _readLineStatus();
 
-    Uint8List list = _readList(1024);
+    Uint8List list = await _readList(1024);
      
     readBuff.addAll(list);
     return Future<int>.value( readBuff.length );
   }
 
   Future<int> _readLineStatus() async {
+
+    return 0;
+
     _checkFLH(flh);
 
     bool currCTS = getCTS();
@@ -204,7 +218,7 @@ class FlSerial {
     return 0;
   }
 
-  Uint8List _readList(int len) {
+  Future< Uint8List> _readList(int len) async  {
     _checkFLH(flh);
 
     Allocator allocator = calloc;
@@ -361,6 +375,11 @@ class FlSerial {
   int setFlowControlSoftware() {
     _checkFLH(flh);
     return _bindings.fl_ctrl(flh, FlCtrl.FL_CTRL_SET_FLOWCONTROL_SOFTWARE, 0);
+  }
+
+  int setWaitStatusChange() {
+    _checkFLH(flh);
+    return _bindings.fl_ctrl(flh, FlCtrl.FL_CTRL_GET_STATUS_CHANGE, 0);
   }
 
   int free() {

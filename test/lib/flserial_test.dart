@@ -19,7 +19,9 @@ void main() {
       //return DynamicLibrary.open('${libPath}lib$libName.so');
     }
     if (Platform.isWindows) {
-      return DynamicLibrary.open('$libPath$libName.dll');
+      String basedir = Directory.current.path;
+      libPath =  '$basedir/build/windows/x64/release/shared/flserial.dll'; 
+      return DynamicLibrary.open(libPath);
     }
     throw UnsupportedError('Unknown platform: ${Platform.operatingSystem}');
   }();

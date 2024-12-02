@@ -176,7 +176,8 @@ abstract class FlCtrl {
   static const int FL_CTRL_SET_FLOWCONTROL_NONE = 19;
   static const int FL_CTRL_SET_FLOWCONTROL_HARDWARE = 20;
   static const int FL_CTRL_SET_FLOWCONTROL_SOFTWARE = 21;
-  static const int FL_CTRL_LAST = 22;
+  static const int FL_CTRL_GET_STATUS_CHANGE = 22;
+  static const int FL_CTRL_LAST = 23;
 }
 
 abstract class FlError {

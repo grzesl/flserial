@@ -110,7 +110,7 @@ struct Timeout {
    * \return Timeout struct that represents this simple timeout provided.
    */
   static Timeout simpleTimeout(uint32_t timeout) {
-    return Timeout(max(), timeout, 0, timeout, 0);
+    return Timeout(10, timeout, 0, timeout, 0);
   }
 
   /*! Number of milliseconds between bytes received to timeout on. */

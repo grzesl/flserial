@@ -36,6 +36,9 @@ set(serial_SRCS
 )
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 
+list(APPEND serial_SRCS src/impl/tinycthread.c)
+list(APPEND serial_SRCS src/impl/fifo.c)
+
 if(APPLE)
     # If OSX
     list(APPEND serial_SRCS src/impl/unix.cc)
