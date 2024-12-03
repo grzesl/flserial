@@ -8,7 +8,7 @@ void main() {
   String libPath = ''; 
 
   /// The dynamic library in which the symbols for [FlserialBindings] can be found.
-  final DynamicLibrary dylib = () {
+   () {
     if (Platform.isMacOS || Platform.isIOS) {
       return DynamicLibrary.open('$libPath$libName.framework/$libName');
     }
@@ -27,7 +27,7 @@ void main() {
   //'/home/runner/work/flserial/flserial/build/linux/x64/release/shared/libflserial.so');
 
   test('FLSerial status should be closed', () {
-    
+
     final port = FlSerial();
 
     port.init();
