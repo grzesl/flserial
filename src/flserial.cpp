@@ -105,7 +105,7 @@ FFI_PLUGIN_EXPORT int fl_open(int flh, char *portname, int baudrate)
         }
         
     }
-    catch (const std::exception &e)
+    catch (const std::exception)
     {
         port->lasterror = FlError::FL_ERROR_UNKNOW;
     }

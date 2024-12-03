@@ -714,7 +714,7 @@ public:
       ss << ", file " << file_ << ", line " << line_ << ".";
       e_what_ = ss.str();
   }
-  explicit IOException (std::string file, int line, const char * description, int errnum)
+  explicit IOException (std::string file, int line, const char * description, int errnum = 0) 
     : file_(file), line_(line), errno_(errnum) {
       std::stringstream ss;
       ss << "IO Exception: " << description;
