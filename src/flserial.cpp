@@ -10,9 +10,11 @@ typedef struct _flserial_
     int baudrate;
     serial::Serial *serialport;
     enum FlError lasterror;
+    char lasterrormsg[512];
     thrd_t cthread;
     int breakThread;
     fifo_t *cfifo;
+ 
     flcallback callback;
 } FlSerial;
 
@@ -86,9 +88,26 @@ FFI_PLUGIN_EXPORT int fl_open(int flh, char *portname, int baudrate)
         port->cfifo = fifo_create(1024 * 50);
         thrd_create(&port->cthread, SerialThread, (void *)port);
     }
-    catch (const std::exception &)
+    catch (const serial::IOException& ioe)
     {
-        port->lasterror = FlError::FL_ERROR_PORT_ALLREADY_OPEN;
+        strncpy(port->lasterrormsg, ioe.what(), sizeof(port->lasterrormsg) - 1);
+
+        switch (ioe.getErrorNumber()){
+        case 1:
+            port->lasterror = FlError::FL_ERROR_PORT_NOT_EXIST;
+            break;
+        case 2:
+            port->lasterror = FlError::FL_ERROR_PORT_ALLREADY_OPEN;
+            break;
+        default:
+            port->lasterror = FlError::FL_ERROR_UNKNOW;
+            break;
+        }
+        
+    }
+    catch (const std::exception &e)
+    {
+        port->lasterror = FlError::FL_ERROR_UNKNOW;
     }
 
     return porth;
@@ -154,9 +173,13 @@ FFI_PLUGIN_EXPORT int fl_close(int flh)
     try
     {
         port->breakThread = 1;
-        thrd_join(port->cthread, NULL);
+
+        if (port->cthread != 0)
+            thrd_join(port->cthread, NULL);
+        
         port->serialport->close();
-        fifo_destroy(port->cfifo);
+        if(port->cfifo != 0)
+            fifo_destroy(port->cfifo);
     }
     catch (const std::exception &)
     {

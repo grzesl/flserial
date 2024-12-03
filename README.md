@@ -6,16 +6,18 @@ Supported platforms:
 - Windows
 - Android
 
+
 Example of usage:
 
 
 ```
     FlSerial serial = FlSerial();
+    serial.init();
     serial.openPort("COM3", 9600);
-    serial.onSerialData.subscribe(
+    serial.onSerialData.stream.listen(
       (args) {
-        if (args != null && args.len > 0) {
-          print(serial.readList());
+        if (args.len > 0) {
+          print(args.serial.readList());
         }
       },
     );

@@ -62,8 +62,9 @@ class _MyAppState extends State<MyApp> {
                 } else {
 
                   serial.onSerialData.stream.listen((args) {
-                    int duration = serial.getTickCount() - readTime;
-                    var list  = serial.readList();
+                    
+                    int duration = args.serial.getTickCount() - readTime;
+                    var list  = args.serial.readList();
 
                     setState(() {
                     totalLen += list.length;

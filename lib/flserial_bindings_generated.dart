@@ -200,9 +200,10 @@ abstract class FlError {
   static const int FL_ERROR_OK = 0;
   static const int FL_ERROR_UNKNOW = 1;
   static const int FL_ERROR_PORT_ALLREADY_OPEN = 2;
-  static const int FL_ERROR_IO = 3;
-  static const int FL_ERROR_HANDLER = 4;
-  static const int FL_ERROR_LAST = 5;
+  static const int FL_ERROR_PORT_NOT_EXIST = 3;
+  static const int FL_ERROR_IO = 4;
+  static const int FL_ERROR_HANDLER = 5;
+  static const int FL_ERROR_LAST = 6;
 }
 
 typedef flcallback = ffi.Pointer<ffi.NativeFunction<flcallbackFunction>>;

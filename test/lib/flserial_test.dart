@@ -1,6 +1,5 @@
 import 'dart:ffi';
 import 'dart:io';
-import 'package:flutter/foundation.dart';
 import 'package:test/test.dart';
 import 'package:flserial/flserial.dart';
 
@@ -28,11 +27,7 @@ void main() {
   //'/home/runner/work/flserial/flserial/build/linux/x64/release/shared/libflserial.so');
 
   test('FLSerial status should be closed', () {
-
-    if (kDebugMode) {
-      print(dylib.toString());
-    }
-
+    
     final port = FlSerial();
 
     port.init();

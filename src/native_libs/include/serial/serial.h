@@ -45,8 +45,13 @@
 #include <stdexcept>
 #include <serial/v8stdint.h>
 
+
+
+#define THROWEX(exceptionClass, message, errorno) throw exceptionClass(__FILE__, \
+__LINE__, (message), (errorno) )
+
 #define THROW(exceptionClass, message) throw exceptionClass(__FILE__, \
-__LINE__, (message) )
+__LINE__, (message), (0) )
 
 namespace serial {
 
@@ -709,8 +714,8 @@ public:
       ss << ", file " << file_ << ", line " << line_ << ".";
       e_what_ = ss.str();
   }
-  explicit IOException (std::string file, int line, const char * description)
-    : file_(file), line_(line), errno_(0) {
+  explicit IOException (std::string file, int line, const char * description, int errnum)
+    : file_(file), line_(line), errno_(errnum) {
       std::stringstream ss;
       ss << "IO Exception: " << description;
       ss << ", file " << file_ << ", line " << line_ << ".";

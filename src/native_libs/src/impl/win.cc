@@ -80,7 +80,10 @@ Serial::SerialImpl::open ()
     case ERROR_FILE_NOT_FOUND:
       // Use this->getPort to convert to a std::string
       ss << "Specified port, " << this->getPort() << ", does not exist.";
-      THROW (IOException, ss.str().c_str());
+      THROWEX (IOException, ss.str().c_str(), 1);
+    case ERROR_ACCESS_DENIED:
+      ss << "Specified port, " << this->getPort() << ", allready open.";
+      THROWEX (IOException, ss.str().c_str(), 2);
     default:
       ss << "Unknown error opening the serial port: " << create_file_err;
       THROW (IOException, ss.str().c_str());

@@ -68,10 +68,10 @@ enum FLOpenStatus {
 }
 
 class FlSerialEventArgs {
-  FlSerialEventArgs(this.len, this.dataRecivied, this.cts, this.dsr);
+  FlSerialEventArgs(this.serial, this.len, this.cts, this.dsr);
+  final FlSerial serial;
   final int len;
-  final Uint8List dataRecivied;
-  final bool cts, dsr;
+  final bool cts, dsr;  
 }
 
 class FlSerial {
@@ -117,20 +117,40 @@ class FlSerial {
   }
 
   FLOpenStatus openPort(String portname, int baudrate) {
-    onSerialData = StreamController<FlSerialEventArgs>();
+    
     prevCTS = false;
     prevDSR = false;
     flh = _bindings.fl_open(flh, stringToNativeInt8(portname), baudrate);
+    int error = _bindings.fl_ctrl(flh, FlCtrl.FL_CTRL_LAST_ERROR, -1);
+    if (error >  0) {
+      
+      String msg = "Port open error: " + portname ;
+      switch(error) {
+        case 1:
+        msg+= " port not exist";
+        break;
+        case 2:
+        msg+= " port allready open";
+      }
+
+      _bindings.fl_close(flh);
+      flh = -1;
+      throw Exception(msg);
+    }
+
+    onSerialData = StreamController<FlSerialEventArgs>();
+
     setCallback(
       flh,
-      callback: (flh, attrs) async {
+      callback: (cflh, attrs) async {
         int read = await _readProcess();
         if (read > 0) {
-          onSerialData.add(FlSerialEventArgs(
-              readBuff.length, Uint8List(0), prevCTS, prevDSR));
+          onSerialData.add(FlSerialEventArgs(this,
+              readBuff.length, prevCTS, prevDSR));
         }
       },
     );
+    
     return isOpen();
   }
 
@@ -162,6 +182,9 @@ class FlSerial {
         break;
       case FlError.FL_ERROR_PORT_ALLREADY_OPEN:
         strres = "$res: Port allready open";
+        break;
+      case FlError.FL_ERROR_PORT_NOT_EXIST:
+        strres = "$res: Port not exist";
         break;
       default:
         strres = "-1: Unknow error";
