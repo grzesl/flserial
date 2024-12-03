@@ -1,5 +1,3 @@
-import 'package:flserial/flserial_bindings_generated.dart';
-
 
 /// Exception class for serial port
 class FlserialException implements Exception {
