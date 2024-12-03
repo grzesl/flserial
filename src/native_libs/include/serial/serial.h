@@ -51,7 +51,7 @@
 __LINE__, (message), (errorno) )
 
 #define THROW(exceptionClass, message) throw exceptionClass(__FILE__, \
-__LINE__, (message), (0) )
+__LINE__, (message) )
 
 namespace serial {
 
@@ -701,7 +701,7 @@ class IOException : public std::exception
   std::string e_what_;
   int errno_;
 public:
-  explicit IOException (std::string file, int line, int errnum)
+  explicit IOException (std::string file, int line, int errnum = 0)
     : file_(file), line_(line), errno_(errnum) {
       std::stringstream ss;
 #if defined(_WIN32) && !defined(__MINGW32__)
