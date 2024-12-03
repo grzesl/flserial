@@ -88,7 +88,7 @@ class _MyAppState extends State<MyApp> {
                  {
                   send[i] = 0x10;
                  }
-                 serial.write(send.length, send);     
+                 serial.write(send);     
                  readTime = serial.getTickCount();            
                 } else {
                   setState(() {

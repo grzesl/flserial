@@ -29,7 +29,10 @@ Example of usage:
 
     String msg = "Hello World!";
     var list = msg.codeUnits;
-    serial.write(list.length, Uint8List.fromList(list) );
+    serial.write(Uint8List.fromList(list));
+
+    serial.closePort();
+    serial.free();
 
 
 ```

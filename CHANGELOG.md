@@ -2,15 +2,24 @@
 * New event model
 * Cleaning up unnecessary libs
 * Performance improvements
-* Api changes:
+* Api changes, main functions:
 
-from:
+Stream based events, before:
 ```
 serial.onSerialData.subscribe(
 ```
 to:
 ```
 serial.onSerialData.stream.listen(
+```
+
+Write serial port, before:
+```
+serial.write(data.length, data);     
+```
+to:
+```
+serial.write(data);    
 ```
 
 ## 0.1.2

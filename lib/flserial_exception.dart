@@ -1,6 +1,9 @@
 import 'package:flserial/flserial_bindings_generated.dart';
 
+
+/// Exception class for serial port
 class FlserialException implements Exception {
-  FlserialException(error);
-  int error = FlError.FL_ERROR_OK;
+  FlserialException(this.error, {required this.msg});
+  final int error;
+  final String msg;
 }
