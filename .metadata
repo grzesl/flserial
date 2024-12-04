@@ -18,7 +18,13 @@ migration:
     - platform: android
       create_revision: dec2ee5c1f98f8e84a7d5380c05eb8a3d0a81668
       base_revision: dec2ee5c1f98f8e84a7d5380c05eb8a3d0a81668
+    - platform: ios
+      create_revision: dec2ee5c1f98f8e84a7d5380c05eb8a3d0a81668
+      base_revision: dec2ee5c1f98f8e84a7d5380c05eb8a3d0a81668
     - platform: linux
+      create_revision: dec2ee5c1f98f8e84a7d5380c05eb8a3d0a81668
+      base_revision: dec2ee5c1f98f8e84a7d5380c05eb8a3d0a81668
+    - platform: macos
       create_revision: dec2ee5c1f98f8e84a7d5380c05eb8a3d0a81668
       base_revision: dec2ee5c1f98f8e84a7d5380c05eb8a3d0a81668
     - platform: windows

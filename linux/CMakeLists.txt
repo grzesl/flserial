@@ -5,9 +5,6 @@ cmake_minimum_required(VERSION 3.10)
 
 # Project-level configuration.
 set(PROJECT_NAME "flserial")
-
-
-
 project(${PROJECT_NAME} LANGUAGES CXX)
 
 # Invoke the build for native code shared with the other target platforms.
@@ -19,7 +16,7 @@ add_subdirectory("${CMAKE_CURRENT_SOURCE_DIR}/../src" "${CMAKE_CURRENT_BINARY_DI
 # external build triggered from this build file.
 set(flserial_bundled_libraries
   # Defined in ../src/CMakeLists.txt.
-  # This can be changed to  accommodate different builds.
+  # This can be changed to accommodate different builds.
   $<TARGET_FILE:flserial>
   PARENT_SCOPE
 )

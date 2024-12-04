@@ -1,7 +1,6 @@
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <errno.h>
 
 #if _WIN32
 #include <windows.h>
@@ -15,6 +14,7 @@
 #else
 #define FFI_PLUGIN_EXPORT
 #endif
+
 
 #define MAX_PORT_NAME_LEN 512
 #define MAX_PORT_COUNT 128

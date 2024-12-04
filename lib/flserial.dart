@@ -5,7 +5,6 @@ import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:ffi/ffi.dart';
-
 import 'package:flserial/flserial_exception.dart';
 
 import 'flserial_bindings_generated.dart';
@@ -66,7 +65,7 @@ Int8List nativeInt8ToInt8List(Pointer<Int8> pointer) {
 }
 
 /// Open serial port status
-enum FLOpenStatus {
+enum FlOpenStatus {
   open,
   closed,
   error,
@@ -125,11 +124,11 @@ class FlSerial {
     if (handler >= 0 && handler < MAX_PORT_COUNT) {
       return FlError.FL_ERROR_OK;
     }
-    throw FlserialException(FlError.FL_ERROR_HANDLER, msg: "$handler");
+    throw FlSerialException(FlError.FL_ERROR_HANDLER, msg: "$handler");
   }
 
   /// Function for openning serial port
-  FLOpenStatus openPort(String portname, int baudrate) {
+  FlOpenStatus openPort(String portname, int baudrate) {
     prevCTS = false;
     prevDSR = false;
     flh = _bindings.fl_open(flh, stringToNativeInt8(portname), baudrate);
@@ -137,20 +136,22 @@ class FlSerial {
     int flerror = FlError.FL_ERROR_UNKNOW;
     if (error > 0) {
       /// error mapping
-      String msg = "Port open error: " + portname;
+      String msg = "Port open error: $portname";
       switch (error) {
         case 1:
+        case 3:
           flerror = FlError.FL_ERROR_PORT_NOT_EXIST;
           msg += " port not exist";
           break;
         case 2:
           flerror = FlError.FL_ERROR_PORT_ALLREADY_OPEN;
           msg += " port allready open";
+          break;
       }
 
       _bindings.fl_close(flh);
       flh = -1;
-      throw FlserialException(flerror, msg: msg);
+      throw FlSerialException(flerror, msg: msg);
     }
 
     onSerialData = StreamController<FlSerialEventArgs>();
@@ -170,20 +171,20 @@ class FlSerial {
   }
 
   /// Function check is serial port opened
-  FLOpenStatus isOpen() {
+  FlOpenStatus isOpen() {
     if (flh < 0) {
-      return FLOpenStatus.closed;
+      return FlOpenStatus.closed;
     }
 
     int error = _bindings.fl_ctrl(flh, FlCtrl.FL_CTRL_LAST_ERROR, -1);
     if (error > 0) {
-      return FLOpenStatus.error;
+      return FlOpenStatus.error;
     }
     int nres = _bindings.fl_ctrl(flh, FlCtrl.FL_CTRL_IS_PORT_OPEN, -1);
     if (nres == 0) {
-      return FLOpenStatus.closed;
+      return FlOpenStatus.closed;
     }
-    return FLOpenStatus.open;
+    return FlOpenStatus.open;
   }
 
   /// Get last error message. Return empty string if no error

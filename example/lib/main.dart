@@ -1,6 +1,10 @@
-import 'dart:typed_data';
+import 'dart:async';
 
+import 'package:ffi/ffi.dart';
+import 'package:flserial/flserial_exception.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+
 import 'package:flserial/flserial.dart';
 
 void main() {
@@ -15,96 +19,64 @@ class MyApp extends StatefulWidget {
 }
 
 class _MyAppState extends State<MyApp> {
-  late FlSerial serial;
-  String resultMsg = "Try to use button";
-  int totalLen = 0;
-  int readTime = 0;
+  String _errorMsg = 'Unknown';
+  final _flserialPlugin = FlSerial();
+
   @override
   void initState() {
     super.initState();
-    serial = FlSerial();
-    serial.init();
   }
 
   @override
   Widget build(BuildContext context) {
-    const textStyle = TextStyle(fontSize: 25);
-    const spacerSmall = SizedBox(height: 10);
     return MaterialApp(
       home: Scaffold(
         appBar: AppBar(
-          title: const Text('Native Packages'),
+          title: const Text('Plugin example app'),
         ),
-        body: SingleChildScrollView(
-          child: Container(
-            padding: const EdgeInsets.all(10),
-            child: Column(
-              children: [
-                TextButton(onPressed: () {
-                  
-                if(serial.isOpen() == FLOpenStatus.open)
-                {
-                  setState(() {
-                    resultMsg = "Port allready open...Closing";
-                    totalLen = 0;
-                  });
-                    serial.closePort();
+        body: Column(
+          children: [
+            ElevatedButton(
+                onPressed: () {
+                  try {
+                    _flserialPlugin.init();
+                    _flserialPlugin.openPort(FlSerial.listPorts()[0].split(" - ")[0], 115200);
+                    _flserialPlugin.onSerialData.stream.listen(
+                      (args) {
+                        if (args.len > 0) {
+                          setState(() {
+                            _errorMsg = args.serial.readList().toString();
+                          });
+                        }
+                      },
+                    );
 
-                }
-                else if (serial.openPort("COM3", 115200) == FLOpenStatus.error)
-                {
-
-                  setState(() {
-                    resultMsg = "Port not open because error ${serial.getLastError()}";
-                  });
-
-                  serial.closePort(); // free
-                } else {
-
-                  serial.onSerialData.stream.listen((args) {
-                    
-                    int duration = args.serial.getTickCount() - readTime;
-                    var list  = args.serial.readList();
-
+                    String msg = "Hello World!";
+                    var list = msg.codeUnits;
+                    _flserialPlugin.write(Uint8List.fromList(list));
                     setState(() {
-                    totalLen += list.length;
-                    resultMsg += "Serial port read: $list time: $duration [ms] len: ${list.length} [B] total: $totalLen CTS: ${args.cts} DSR: ${args.dsr}\n";
-                  });
-                 },);
-
-                  setState(() {
-                    resultMsg = "Port open";
-                  });
-
-                }
-                }, child: Text(serial.isOpen() != FLOpenStatus.closed?"Close port":"Open port")),
-                TextButton(onPressed: () {
-
-                if(serial.isOpen() == FLOpenStatus.open) {
-
-
-                 Uint8List send = Uint8List(1000);
-                 for (int i=0;i< 1000;i++)
-                 {
-                  send[i] = 0x10;
-                 }
-                 serial.write(send);     
-                 readTime = serial.getTickCount();            
-                } else {
-                  setState(() {
-                  resultMsg = "Port not opened...";
+                      _errorMsg = "Test OK";
                     });
-                }
-                  
-                }, child: const Text("Run serial test")),
-                Text(resultMsg,
-                  style: textStyle,
-                  textAlign: TextAlign.center,
-                ),
-                spacerSmall,
-              ],
+                  } on FlSerialException catch (e) {
+                    setState(() {
+                      _errorMsg = e.msg;
+                    });
+                  } on Exception catch (ex) {
+                                        setState(() {
+                      _errorMsg = ex.toString();
+                    });
+                  } finally {
+                    if (_flserialPlugin.isOpen() == FlOpenStatus.open) {
+                      _flserialPlugin.closePort();
+                    }
+                    _flserialPlugin.free();
+                  }
+                },
+                child: const Text("Serial port test")),
+            Center(
+              child: Text('Message: $_errorMsg\n'),
             ),
-          ),
+          ],
         ),
       ),
     );
