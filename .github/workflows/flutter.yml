@@ -29,15 +29,11 @@ jobs:
         run: flutter analyze
 
       - name: Build release
-        run: |
-          cd example
-          flutter build linux --release
+        working-directory: ./example
+        run: flutter build linux --release
 
       #- name: List files in the repository
       #  run: ls -lR ${{ github.workspace }}/build/linux
-
-
       - name: Run tests
-        run: |
-          cd example
-          flutter test
+        working-directory: ./example
+        run: flutter test

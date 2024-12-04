@@ -12,10 +12,10 @@ void main() {
       return DynamicLibrary.open('$libName.framework/$libName');
     }
     if (Platform.isAndroid || Platform.isLinux) {
-      return DynamicLibrary.open('lib$libName.so');
+      return DynamicLibrary.open('build/linux/x64/release/shared/lib$libName.so');
     }
     if (Platform.isWindows) {
-      return DynamicLibrary.open('$libName.dll');
+      return DynamicLibrary.open('build/windows/x64/runner/Release/$libName.dll');
     }
     throw UnsupportedError('Unknown platform: ${Platform.operatingSystem}');
   }();
