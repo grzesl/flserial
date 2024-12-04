@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.14)
 
-project(flserial_library VERSION 0.1.1 LANGUAGES C CXX)
+project(flserial_library VERSION 0.2.1 LANGUAGES C CXX)
 
 add_subdirectory(native_libs)
 

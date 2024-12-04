@@ -17,7 +17,7 @@
 #include <cstdarg>
 #include <cstdlib>
 #ifdef ANDROID
-#include "../cglob.h"
+#include "cglob.h"
 #else
 #include <glob.h>
 #define  cglob glob
