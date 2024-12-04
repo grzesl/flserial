@@ -1,3 +1,7 @@
+## 0.3.0
+* Import project to new plugin ffi template
+* Few Api changes
+
 ## 0.2.0
 * New event model
 * Cleaning up unnecessary libs
