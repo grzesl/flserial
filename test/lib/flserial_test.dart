@@ -2,8 +2,6 @@ import 'dart:ffi';
 import 'dart:io';
 import 'package:flserial/flserial_bindings_generated.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:test/test.dart' as t;
-import 'package:flserial/flserial.dart';
 
 void main() {
   const String libName = 'flserial';
