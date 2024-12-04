@@ -12,7 +12,7 @@ import 'flserial_bindings_generated.dart';
 const String _libName = 'flserial';
 
 /// The dynamic library in which the symbols for [FlserialBindings] can be found.
-final DynamicLibrary _dylib = () {
+final DynamicLibrary dylib = () {
   if (Platform.isMacOS || Platform.isIOS) {
     return DynamicLibrary.open('$_libName.framework/$_libName');
   }
@@ -26,7 +26,7 @@ final DynamicLibrary _dylib = () {
 }();
 
 /// The bindings to the native functions in [_dylib].
-final FlserialBindings _bindings = FlserialBindings(_dylib);
+final FlserialBindings bindings = FlserialBindings(dylib);
 
 /// Native pointer to string conversion
 String nativeInt8ToString(Pointer<Int8> pointer, {bool allowMalformed = true}) {
@@ -90,14 +90,14 @@ class FlSerial {
   /// Init should be called at program start, after FlSerial creation
   /// Function is used to make array of internal port structs for 16 parallel processing ports
   int init() {
-    return _bindings.fl_init(16);
+    return bindings.fl_init(16);
   }
 
   /// Setting callback to native code. Used for incoming data signal
   void setCallback(int flh, {required DartflcallbackFunction callback}) {
     final nativeCallable =
         NativeCallable<flcallbackFunction>.listener(callback);
-    _bindings.fl_set_callback(flh, nativeCallable.nativeFunction);
+    bindings.fl_set_callback(flh, nativeCallable.nativeFunction);
   }
 
   /// Listing serial ports. Platform depend
@@ -108,7 +108,7 @@ class FlSerial {
     var result = allocator<Char>(1024);
 
     for (int i = 0; i < 255; i++) {
-      int len = _bindings.fl_ports(i, 1024, result);
+      int len = bindings.fl_ports(i, 1024, result);
       if (len > 0) {
         String resultStr = result.cast<Utf8>().toDartString(length: len);
         list.add(resultStr);
@@ -131,8 +131,8 @@ class FlSerial {
   FlOpenStatus openPort(String portname, int baudrate) {
     prevCTS = false;
     prevDSR = false;
-    flh = _bindings.fl_open(flh, stringToNativeInt8(portname), baudrate);
-    int error = _bindings.fl_ctrl(flh, FlCtrl.FL_CTRL_LAST_ERROR, -1);
+    flh = bindings.fl_open(flh, stringToNativeInt8(portname), baudrate);
+    int error = bindings.fl_ctrl(flh, FlCtrl.FL_CTRL_LAST_ERROR, -1);
     int flerror = FlError.FL_ERROR_UNKNOW;
     if (error > 0) {
       /// error mapping
@@ -149,7 +149,7 @@ class FlSerial {
           break;
       }
 
-      _bindings.fl_close(flh);
+      bindings.fl_close(flh);
       flh = -1;
       throw FlSerialException(flerror, msg: msg);
     }
@@ -176,11 +176,11 @@ class FlSerial {
       return FlOpenStatus.closed;
     }
 
-    int error = _bindings.fl_ctrl(flh, FlCtrl.FL_CTRL_LAST_ERROR, -1);
+    int error = bindings.fl_ctrl(flh, FlCtrl.FL_CTRL_LAST_ERROR, -1);
     if (error > 0) {
       return FlOpenStatus.error;
     }
-    int nres = _bindings.fl_ctrl(flh, FlCtrl.FL_CTRL_IS_PORT_OPEN, -1);
+    int nres = bindings.fl_ctrl(flh, FlCtrl.FL_CTRL_IS_PORT_OPEN, -1);
     if (nres == 0) {
       return FlOpenStatus.closed;
     }
@@ -191,7 +191,7 @@ class FlSerial {
   String getLastError() {
     _checkFLH(flh);
 
-    int res = _bindings.fl_ctrl(flh, FlCtrl.FL_CTRL_LAST_ERROR, -1);
+    int res = bindings.fl_ctrl(flh, FlCtrl.FL_CTRL_LAST_ERROR, -1);
     String strres = "";
 
     switch (res) {
@@ -245,7 +245,7 @@ class FlSerial {
 
     Allocator allocator = calloc;
     var result = allocator<Char>(len);
-    int intres = _bindings.fl_read(flh, len, result);
+    int intres = bindings.fl_read(flh, len, result);
 
     if (intres <= 0) {
       return Uint8List(0);
@@ -290,7 +290,7 @@ class FlSerial {
   int write(Uint8List data) {
     _checkFLH(flh);
 
-    return _bindings.fl_write(flh, data.length, int8ListToPointerInt8(data));
+    return bindings.fl_write(flh, data.length, int8ListToPointerInt8(data));
   }
 
   /// Close serial port and free resources
@@ -298,8 +298,8 @@ class FlSerial {
     _checkFLH(flh);
     onSerialData.close();
     sleep(const Duration(milliseconds: 1));
-    _bindings.fl_ctrl(flh, FlCtrl.FL_CTRL_BREAK, 0);
-    _bindings.fl_close(flh);
+    bindings.fl_ctrl(flh, FlCtrl.FL_CTRL_BREAK, 0);
+    bindings.fl_close(flh);
     flh = -1;
     return flh;
   }
@@ -307,133 +307,133 @@ class FlSerial {
   /// Uniwersal function to control serial port
   int ctrl(int cmd, int value) {
     _checkFLH(flh);
-    return _bindings.fl_ctrl(flh, cmd, value);
+    return bindings.fl_ctrl(flh, cmd, value);
   }
 
   /// Function set RTS line in serial port
   int setRTS(bool value) {
     _checkFLH(flh);
-    return _bindings.fl_ctrl(flh, FlCtrl.FL_CTRL_SET_RTS, value ? 1 : 0);
+    return bindings.fl_ctrl(flh, FlCtrl.FL_CTRL_SET_RTS, value ? 1 : 0);
   }
 
   /// Function set CTS line in serial port
   bool getCTS() {
     _checkFLH(flh);
-    return _bindings.fl_ctrl(flh, FlCtrl.FL_CTRL_GET_CTS, 0) > 0 ? true : false;
+    return bindings.fl_ctrl(flh, FlCtrl.FL_CTRL_GET_CTS, 0) > 0 ? true : false;
   }
 
   /// Get status of DTR line
   int setDTR(bool value) {
     _checkFLH(flh);
-    return _bindings.fl_ctrl(flh, FlCtrl.FL_CTRL_SET_DTR, value ? 1 : 0);
+    return bindings.fl_ctrl(flh, FlCtrl.FL_CTRL_SET_DTR, value ? 1 : 0);
   }
 
   /// Get status of DSR line
   bool getDSR() {
     _checkFLH(flh);
-    return _bindings.fl_ctrl(flh, FlCtrl.FL_CTRL_GET_DSR, 0) > 0 ? true : false;
+    return bindings.fl_ctrl(flh, FlCtrl.FL_CTRL_GET_DSR, 0) > 0 ? true : false;
   }
 
   /// Set byte size to 5 bits
   int setByteSize5() {
     _checkFLH(flh);
-    return _bindings.fl_ctrl(flh, FlCtrl.FL_CTRL_SET_BYTESIZE_5, 0);
+    return bindings.fl_ctrl(flh, FlCtrl.FL_CTRL_SET_BYTESIZE_5, 0);
   }
 
   /// Set byte size to 6 bits
   int setByteSize6() {
     _checkFLH(flh);
-    return _bindings.fl_ctrl(flh, FlCtrl.FL_CTRL_SET_BYTESIZE_6, 0);
+    return bindings.fl_ctrl(flh, FlCtrl.FL_CTRL_SET_BYTESIZE_6, 0);
   }
 
   /// Set byte size to 7 bits
   int setByteSize7() {
     _checkFLH(flh);
-    return _bindings.fl_ctrl(flh, FlCtrl.FL_CTRL_SET_BYTESIZE_7, 0);
+    return bindings.fl_ctrl(flh, FlCtrl.FL_CTRL_SET_BYTESIZE_7, 0);
   }
 
   /// Set byte size to 8 bits
   int setByteSize8() {
     _checkFLH(flh);
-    return _bindings.fl_ctrl(flh, FlCtrl.FL_CTRL_SET_BYTESIZE_8, 0);
+    return bindings.fl_ctrl(flh, FlCtrl.FL_CTRL_SET_BYTESIZE_8, 0);
   }
 
   /// Set bit parity to none
   int setBitParityNone() {
     _checkFLH(flh);
-    return _bindings.fl_ctrl(flh, FlCtrl.FL_CTRL_SET_PARITY_NONE, 0);
+    return bindings.fl_ctrl(flh, FlCtrl.FL_CTRL_SET_PARITY_NONE, 0);
   }
 
   /// Set bit parity to odd
   int setBitParityOdd() {
     _checkFLH(flh);
-    return _bindings.fl_ctrl(flh, FlCtrl.FL_CTRL_SET_PARITY_ODD, 0);
+    return bindings.fl_ctrl(flh, FlCtrl.FL_CTRL_SET_PARITY_ODD, 0);
   }
 
   // Set bit parity to even
   int setBitParityEven() {
     _checkFLH(flh);
-    return _bindings.fl_ctrl(flh, FlCtrl.FL_CTRL_SET_PARITY_EVEN, 0);
+    return bindings.fl_ctrl(flh, FlCtrl.FL_CTRL_SET_PARITY_EVEN, 0);
   }
 
   // Set bit parity to mark
   int setBitParityMark() {
     _checkFLH(flh);
-    return _bindings.fl_ctrl(flh, FlCtrl.FL_CTRL_SET_PARITY_MARK, 0);
+    return bindings.fl_ctrl(flh, FlCtrl.FL_CTRL_SET_PARITY_MARK, 0);
   }
 
   // Set bit parity to space
   int setBitParitySpace() {
     _checkFLH(flh);
-    return _bindings.fl_ctrl(flh, FlCtrl.FL_CTRL_SET_PARITY_SPACE, 0);
+    return bindings.fl_ctrl(flh, FlCtrl.FL_CTRL_SET_PARITY_SPACE, 0);
   }
 
   /// Set stop bits to one
   int setStopBits1() {
     _checkFLH(flh);
-    return _bindings.fl_ctrl(flh, FlCtrl.FL_CTRL_SET_STOPBITS_ONE, 0);
+    return bindings.fl_ctrl(flh, FlCtrl.FL_CTRL_SET_STOPBITS_ONE, 0);
   }
 
   /// Set stop bits to one and half
   int setStopBits1_5() {
     _checkFLH(flh);
-    return _bindings.fl_ctrl(
+    return bindings.fl_ctrl(
         flh, FlCtrl.FL_CTRL_SET_STOPBITS_ONE_POINT_FIVE, 0);
   }
 
   /// Set stop bits to two
   int setStopBits2() {
     _checkFLH(flh);
-    return _bindings.fl_ctrl(flh, FlCtrl.FL_CTRL_SET_STOPBITS_TWO, 0);
+    return bindings.fl_ctrl(flh, FlCtrl.FL_CTRL_SET_STOPBITS_TWO, 0);
   }
 
   /// Disable flow control
   int setFlowControlNone() {
     _checkFLH(flh);
-    return _bindings.fl_ctrl(flh, FlCtrl.FL_CTRL_SET_FLOWCONTROL_NONE, 0);
+    return bindings.fl_ctrl(flh, FlCtrl.FL_CTRL_SET_FLOWCONTROL_NONE, 0);
   }
 
   /// Set hardware flow control
   int setFlowControlHardware() {
     _checkFLH(flh);
-    return _bindings.fl_ctrl(flh, FlCtrl.FL_CTRL_SET_FLOWCONTROL_HARDWARE, 0);
+    return bindings.fl_ctrl(flh, FlCtrl.FL_CTRL_SET_FLOWCONTROL_HARDWARE, 0);
   }
 
   /// Set xon/xoff flow control (software)
   int setFlowControlSoftware() {
     _checkFLH(flh);
-    return _bindings.fl_ctrl(flh, FlCtrl.FL_CTRL_SET_FLOWCONTROL_SOFTWARE, 0);
+    return bindings.fl_ctrl(flh, FlCtrl.FL_CTRL_SET_FLOWCONTROL_SOFTWARE, 0);
   }
 
   /// Waiting for status line change
   int setWaitStatusChange() {
     _checkFLH(flh);
-    return _bindings.fl_ctrl(flh, FlCtrl.FL_CTRL_GET_STATUS_CHANGE, 0);
+    return bindings.fl_ctrl(flh, FlCtrl.FL_CTRL_GET_STATUS_CHANGE, 0);
   }
 
   /// Free resources. Serial port should not be used after calling this function
   int free() {
-    return _bindings.fl_free();
+    return bindings.fl_free();
   }
 
   /// Ultility function for get time in milliseconds

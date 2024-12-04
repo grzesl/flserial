@@ -1,6 +1,3 @@
-import 'dart:async';
-
-import 'package:ffi/ffi.dart';
 import 'package:flserial/flserial_exception.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -40,7 +37,8 @@ class _MyAppState extends State<MyApp> {
                 onPressed: () {
                   try {
                     _flserialPlugin.init();
-                    _flserialPlugin.openPort(FlSerial.listPorts()[0].split(" - ")[0], 115200);
+                    _flserialPlugin.openPort(
+                        FlSerial.listPorts()[0].split(" - ")[0], 115200);
                     _flserialPlugin.onSerialData.stream.listen(
                       (args) {
                         if (args.len > 0) {
@@ -62,7 +60,7 @@ class _MyAppState extends State<MyApp> {
                       _errorMsg = e.msg;
                     });
                   } on Exception catch (ex) {
-                                        setState(() {
+                    setState(() {
                       _errorMsg = ex.toString();
                     });
                   } finally {

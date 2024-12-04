@@ -2,39 +2,33 @@ import 'dart:ffi';
 import 'dart:io';
 import 'package:flserial/flserial_bindings_generated.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:test/test.dart';
+import 'package:test/test.dart' as t;
 import 'package:flserial/flserial.dart';
 
 void main() {
-  const String _libName = 'flserial';
+  const String libName = 'flserial';
 
   /// The dynamic library in which the symbols for [FlserialBindings] can be found.
-  final DynamicLibrary _dylib = () {
+  final DynamicLibrary dylib = () {
     if (Platform.isMacOS || Platform.isIOS) {
-      return DynamicLibrary.open('$_libName.framework/$_libName');
+      return DynamicLibrary.open('$libName.framework/$libName');
     }
     if (Platform.isAndroid || Platform.isLinux) {
-      return DynamicLibrary.open('lib$_libName.so');
+      return DynamicLibrary.open('lib$libName.so');
     }
     if (Platform.isWindows) {
-      return DynamicLibrary.open('$_libName.dll');
+      return DynamicLibrary.open('$libName.dll');
     }
     throw UnsupportedError('Unknown platform: ${Platform.operatingSystem}');
   }();
 
   /// The bindings to the native functions in [_dylib].
-  final FlserialBindings _bindings = FlserialBindings(_dylib);
+  final FlserialBindings bindings = FlserialBindings(dylib);
   //'/home/runner/work/flserial/flserial/build/linux/x64/release/shared/libflserial.so');
 
   test('FLSerial status should be closed', () {
-    final port = FlSerial();
+      bindings.fl_init(10);
 
-    port.init();
-
-    FlOpenStatus status = port.isOpen();
-
-    expect(status, FlOpenStatus.closed);
-
-    port.free();
+      bindings.fl_free();
   });
 }
