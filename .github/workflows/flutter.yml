@@ -40,5 +40,5 @@ jobs:
       #- name: List files in the repository
       #  run: ls -lR ${{ github.workspace }}/build/linux
       - name: Run tests
-        working-directory: ./example
+        working-directory: ./example/build/linux/x64/release/bundle
         run: flutter test
