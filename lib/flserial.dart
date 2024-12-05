@@ -397,8 +397,7 @@ class FlSerial {
   /// Set stop bits to one and half
   int setStopBits1_5() {
     _checkFLH(flh);
-    return bindings.fl_ctrl(
-        flh, FlCtrl.FL_CTRL_SET_STOPBITS_ONE_POINT_FIVE, 0);
+    return bindings.fl_ctrl(flh, FlCtrl.FL_CTRL_SET_STOPBITS_ONE_POINT_FIVE, 0);
   }
 
   /// Set stop bits to two
