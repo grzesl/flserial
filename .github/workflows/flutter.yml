@@ -21,7 +21,7 @@ jobs:
       - uses: seanmiddleditch/gha-setup-ninja@master
       
 
-      - name: Install gtk3
+      - name: Sudo apt update
         run: sudo apt update
 
       - name: Install gtk3
