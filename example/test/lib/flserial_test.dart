@@ -12,7 +12,7 @@ void main() {
       return DynamicLibrary.open('$libName.framework/$libName');
     }
     if (Platform.isAndroid || Platform.isLinux) {
-      return DynamicLibrary.open('build/linux/x64/runner/Release/lib$libName.so');
+      return DynamicLibrary.open('/home/runner/work/flserial/flserial/build/linux/x64/release/shared/lib$libName.so');
     }
     if (Platform.isWindows) {
       return DynamicLibrary.open('build/windows/x64/runner/Release/$libName.dll');
