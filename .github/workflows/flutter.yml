@@ -48,5 +48,6 @@ jobs:
       #- name: List files in the repository
       #  run: ls -lR ${{ github.workspace }}/build/linux
       - name: Run tests
-        working-directory: ./example/build/linux/x64/release/bundle/lib
+        run: cp ./example/build/linux/x64/release/bundle/lib/libflserial.so ./libflserial.so
+      - name: Run tests
         run: flutter test
