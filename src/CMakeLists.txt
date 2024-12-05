@@ -3,7 +3,7 @@
 # the plugin to fail to compile for some customers of the plugin.
 cmake_minimum_required(VERSION 3.10)
 
-project(flserial_library VERSION 0.3.0 LANGUAGES C CXX)
+project(flserial_library VERSION 0.3.1 LANGUAGES C CXX)
 
 if(MSVC)
     add_definitions(-D_CRT_SECURE_NO_WARNINGS)

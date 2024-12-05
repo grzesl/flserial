@@ -36,6 +36,10 @@ class _MyAppState extends State<MyApp> {
             ElevatedButton(
                 onPressed: () {
                   try {
+
+                    if(FlSerial.listPorts().isEmpty) {
+                      throw FlSerialException(3, msg: "Port not found");
+                    }
                     _flserialPlugin.init();
                     _flserialPlugin.openPort(
                         FlSerial.listPorts()[0].split(" - ")[0], 115200);

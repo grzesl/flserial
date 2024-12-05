@@ -1,3 +1,6 @@
+## 0.3.1
+* Update libs
+
 ## 0.3.0
 * Import project to new plugin ffi template
 * Few Api changes
