@@ -37,6 +37,14 @@ jobs:
         working-directory: ./example
         run: flutter build linux --release
 
+      - name: Print Folder Tree
+        uses: jaywcjlove/github-action-folder-tree@main
+        id: tree
+        with:
+          exclude: "node_modules|dist|.git|.husky"
+          path: ./
+          depth: 10
+
       #- name: List files in the repository
       #  run: ls -lR ${{ github.workspace }}/build/linux
       - name: Run tests
