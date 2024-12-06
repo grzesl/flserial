@@ -296,10 +296,8 @@ class FlSerial {
   /// Close serial port and free resources
   int closePort() {
     _checkFLH(flh);
-    onSerialData.close();
-    sleep(const Duration(milliseconds: 1));
-    bindings.fl_ctrl(flh, FlCtrl.FL_CTRL_BREAK, 0);
     bindings.fl_close(flh);
+    onSerialData.close();
     flh = -1;
     return flh;
   }
