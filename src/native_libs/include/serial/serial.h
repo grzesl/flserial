@@ -43,7 +43,7 @@
 #include <sstream>
 #include <exception>
 #include <stdexcept>
-#include <serial/v8stdint.h>
+#include "v8stdint.h"
 
 
 

@@ -70,7 +70,7 @@ FFI_PLUGIN_EXPORT int fl_read (int flh, int len, char *buff);
 FFI_PLUGIN_EXPORT int fl_write (int flh, int len, char *data);
 FFI_PLUGIN_EXPORT int fl_close (int flh);
 FFI_PLUGIN_EXPORT int fl_ctrl (int flh, FlCtrl param, int value);
-FFI_PLUGIN_EXPORT int fl_free ();
+FFI_PLUGIN_EXPORT int fl_free (void);
 
 
 #ifdef __cplusplus

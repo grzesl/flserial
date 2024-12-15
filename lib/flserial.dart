@@ -248,7 +248,7 @@ class FlSerial {
     int intres = bindings.fl_read(flh, len, result);
 
     if (intres <= 0) {
-      //allocator.free(result);
+      allocator.free(result);
       return Uint8List(0);
     }
 
@@ -290,12 +290,10 @@ class FlSerial {
   }
 
   /// Write list data to serial port
-  Future<int> write(Uint8List data) async{
+  int write(Uint8List data) {
     _checkFLH(flh);
-    print ("write  :${DateTime.now().millisecondsSinceEpoch}");
-    int res = bindings.fl_write(flh, data.length, int8ListToPointerInt8(data));
-    print ("write2 :${DateTime.now().millisecondsSinceEpoch}");
-    return res;
+
+    return bindings.fl_write(flh, data.length, int8ListToPointerInt8(data));
   }
 
   /// Close serial port and free resources

@@ -3,8 +3,6 @@
 #include "tinycthread.h"
 #include "fifo.h"
 #include <iostream>
-#include <stdio.h>
-#include <time.h>
 
 typedef struct _flserial_
 {
@@ -16,7 +14,7 @@ typedef struct _flserial_
     thrd_t cthread;
     int breakThread;
     fifo_t *cfifo;
-
+ 
     flcallback callback;
 } FlSerial;
 
@@ -29,6 +27,7 @@ int SerialThread(void *aArg)
 
     while (!serial->breakThread)
     {
+
         res = (int)serial->serialport->read((uint8_t *)buff, (size_t)len);
         if (res > 0)
         {
@@ -45,7 +44,7 @@ int flserial_count;
 int current_port;
 
 FFI_PLUGIN_EXPORT int fl_set_callback(int flh, flcallback cb)
-{
+{ 
     FlSerial *port = flserial_tab[flh];
     port->callback = cb;
     return 0;
@@ -75,7 +74,7 @@ FFI_PLUGIN_EXPORT int fl_open(int flh, char *portname, int baudrate)
     port->lasterror = FL_ERROR_OK;
 
     port->serialport = new serial::Serial();
-#if !defined(__linux__)
+#if !defined(__linux__) && !defined(__APPLE__)
     port->serialport->setTimeout(serial::Timeout(0, 1, 0, 0, 0));
 #endif // #if defined(__linux__)
     port->serialport->setPort(portname);
@@ -307,7 +306,7 @@ FFI_PLUGIN_EXPORT int fl_ctrl(int flh, FlCtrl param, int value)
     return result;
 }
 
-FFI_PLUGIN_EXPORT int fl_free()
+FFI_PLUGIN_EXPORT int fl_free(void)
 {
     return 0;
 }
