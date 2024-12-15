@@ -23,7 +23,7 @@ Example of usage:
     );
 
     serial.setByteSize8();
-    serial.setByteParityNone(); 
+    serial.setBitParityNone(); 
     serial.setStopBits1();
     serial.setFlowControlNone();
 

@@ -159,7 +159,7 @@ class FlSerial {
     setCallback(
       flh,
       callback: (cflh, attrs) async {
-        int read = await _readProcess();
+        int read =  _readProcess();
         if (read > 0) {
           onSerialData
               .add(FlSerialEventArgs(this, readBuff.length, prevCTS, prevDSR));
@@ -212,14 +212,14 @@ class FlSerial {
   }
 
   /// Internal function for async serial port reading.
-  Future<int> _readProcess() async {
+  int _readProcess() {
     _checkFLH(flh);
 
-    Uint8List list = await _readList(1024);
+    Uint8List list = _readList(1024);
 
     readBuff.addAll(list);
-    return Future<int>.value(readBuff.length);
-  }
+    return readBuff.length;
+   }
 
 /*
   Future<int> _readLineStatus() async {
@@ -240,7 +240,7 @@ class FlSerial {
   }*/
 
   /// Internal function to read serial data from lower layer with desired len. If no data is present, empty list is returned
-  Future<Uint8List> _readList(int len) async {
+  Uint8List _readList(int len) {
     _checkFLH(flh);
 
     Allocator allocator = calloc;
@@ -248,11 +248,14 @@ class FlSerial {
     int intres = bindings.fl_read(flh, len, result);
 
     if (intres <= 0) {
+      //allocator.free(result);
       return Uint8List(0);
     }
 
     final ptrNameCodeUnits = result.cast<Uint8>();
     var list = ptrNameCodeUnits.asTypedList(intres);
+    //allocator.free(result);
+
     return list;
   }
 
@@ -287,10 +290,12 @@ class FlSerial {
   }
 
   /// Write list data to serial port
-  int write(Uint8List data) {
+  Future<int> write(Uint8List data) async{
     _checkFLH(flh);
-
-    return bindings.fl_write(flh, data.length, int8ListToPointerInt8(data));
+    print ("write  :${DateTime.now().millisecondsSinceEpoch}");
+    int res = bindings.fl_write(flh, data.length, int8ListToPointerInt8(data));
+    print ("write2 :${DateTime.now().millisecondsSinceEpoch}");
+    return res;
   }
 
   /// Close serial port and free resources
@@ -431,10 +436,5 @@ class FlSerial {
   /// Free resources. Serial port should not be used after calling this function
   int free() {
     return bindings.fl_free();
-  }
-
-  /// Ultility function for get time in milliseconds
-  int getTickCount() {
-    return DateTime.now().millisecond;
   }
 }
