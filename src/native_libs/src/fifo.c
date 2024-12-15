@@ -1,4 +1,4 @@
-#include "fifo.h"
+#include "../include/fifo.h"
 #include <stdbool.h>
 #include <stdint.h>
 #include <stdio.h>
