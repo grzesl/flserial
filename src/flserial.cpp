@@ -1,7 +1,7 @@
 #include "flserial.h"
-#include "serial/serial.h"
-#include "tinycthread.h"
-#include "fifo.h"
+#include "native_libs/include/serial/serial.h"
+#include "native_libs/include/tinycthread.h"
+#include "native_libs/include/fifo.h"
 #include <iostream>
 
 typedef struct _flserial_

@@ -7,6 +7,7 @@ Supported platforms:
 - Linux
 - Windows
 - Android
+- MacOS
 
 Example of usage:
 
