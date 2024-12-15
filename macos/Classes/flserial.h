@@ -17,7 +17,7 @@
 
 
 #define MAX_PORT_NAME_LEN 512
-#define MAX_PORT_COUNT 128
+#define MAX_PORT_COUNT 16
 
 typedef enum FlCtrl {
   FL_CTRL_LAST_ERROR,

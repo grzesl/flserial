@@ -1,3 +1,7 @@
+## 0.3.2
+* MacOS support
+* Memory allocation fix
+
 ## 0.3.1
 * Update libs
 

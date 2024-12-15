@@ -1,6 +1,6 @@
 name: flserial
 description: "Flutter Serial Port Plugin FFI based on great C library. Useful to communicate with RS232 devices."
-version: 0.3.1
+version: 0.3.2
 homepage: https://github.com/grzesl/flserial
 
 environment:

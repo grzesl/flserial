@@ -52,8 +52,12 @@ FFI_PLUGIN_EXPORT int fl_set_callback(int flh, flcallback cb)
 
 FFI_PLUGIN_EXPORT int fl_init(int portCount)
 {
+    if(portCount > MAX_PORT_COUNT)
+        return 1;
+
     flserial_count = portCount;
     current_port = -1;
+
     return 0;
 }
 
@@ -70,6 +74,7 @@ FFI_PLUGIN_EXPORT int fl_open(int flh, char *portname, int baudrate)
     flserial_tab[porth] = port;
 
     strncpy(port->portname, portname, MAX_PORT_NAME_LEN);
+
     port->baudrate = baudrate;
     port->lasterror = FL_ERROR_OK;
 
@@ -140,15 +145,6 @@ FFI_PLUGIN_EXPORT int fl_read(int flh, int len, char *buff)
     int read = 0;
 
     read = fifo_read(port->cfifo, buff, len);
-
-    /*try
-    {
-        res = (int)port->serialport->read((uint8_t *)buff, (size_t)len);
-    }
-    catch (const std::exception &)
-    {
-        port->lasterror = FlError::FL_ERROR_PORT_ALLREADY_OPEN;
-    }*/
 
     return read;
 }
@@ -308,5 +304,6 @@ FFI_PLUGIN_EXPORT int fl_ctrl(int flh, FlCtrl param, int value)
 
 FFI_PLUGIN_EXPORT int fl_free(void)
 {
+    flserial_count = 0;
     return 0;
 }

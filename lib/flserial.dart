@@ -36,17 +36,19 @@ String nativeInt8ToString(Pointer<Int8> pointer, {bool allowMalformed = true}) {
   return utf8.decode(list, allowMalformed: allowMalformed);
 }
 
-/// String conversion to native pointer
+/// String conversion to native pointer, memory should be free outside function
 Pointer<Char> stringToNativeInt8(String str, {Allocator allocator = calloc}) {
+
   final units = utf8.encode(str);
   final result = allocator<Uint8>(units.length + 1);
   final nativeString = result.asTypedList(units.length + 1);
   nativeString.setAll(0, units);
   nativeString[units.length] = 0;
+  
   return result.cast<Char>();
 }
 
-/// List conversion to native pointer
+/// List conversion to native pointer, memory should be free outside function
 Pointer<Char> int8ListToPointerInt8(Uint8List units,
     {Allocator allocator = calloc}) {
   final pointer = allocator<Uint8>(units.length + 1); //blob
@@ -131,7 +133,9 @@ class FlSerial {
   FlOpenStatus openPort(String portname, int baudrate) {
     prevCTS = false;
     prevDSR = false;
-    flh = bindings.fl_open(flh, stringToNativeInt8(portname), baudrate);
+    Pointer<Char> ptr = stringToNativeInt8(portname);
+    flh = bindings.fl_open(flh, ptr, baudrate);
+    calloc.free(ptr);
     int error = bindings.fl_ctrl(flh, FlCtrl.FL_CTRL_LAST_ERROR, -1);
     int flerror = FlError.FL_ERROR_UNKNOW;
     if (error > 0) {
@@ -293,7 +297,11 @@ class FlSerial {
   int write(Uint8List data) {
     _checkFLH(flh);
 
-    return bindings.fl_write(flh, data.length, int8ListToPointerInt8(data));
+    Pointer<Char> ptr = int8ListToPointerInt8(data);
+    int res =  bindings.fl_write(flh, data.length, ptr);
+    calloc.free(ptr);
+
+    return res;
   }
 
   /// Close serial port and free resources

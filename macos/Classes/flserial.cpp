@@ -52,8 +52,12 @@ FFI_PLUGIN_EXPORT int fl_set_callback(int flh, flcallback cb)
 
 FFI_PLUGIN_EXPORT int fl_init(int portCount)
 {
+    if(portCount > MAX_PORT_COUNT)
+        return 1;
+
     flserial_count = portCount;
     current_port = -1;
+
     return 0;
 }
 
@@ -70,29 +74,34 @@ FFI_PLUGIN_EXPORT int fl_open(int flh, char *portname, int baudrate)
     flserial_tab[porth] = port;
 
     strncpy(port->portname, portname, MAX_PORT_NAME_LEN);
+
     port->baudrate = baudrate;
     port->lasterror = FL_ERROR_OK;
 
     port->serialport = new serial::Serial();
 #if !defined(__linux__) && !defined(__APPLE__)
-    port->serialport->setTimeout(serial::Timeout(0, 10, 0, 10, 0));
+    port->serialport->setTimeout(serial::Timeout(0, 1, 0, 0, 0));
 #endif // #if defined(__linux__)
     port->serialport->setPort(portname);
     port->serialport->setBaudrate(baudrate);
 
-    // port->serialport->setParity(serial::parity_t::parity_none)
+
 
     try
     {
         port->serialport->open();
-        port->cfifo = fifo_create(1024 * 50);
+        port->cfifo = fifo_create(1024 * 64);
+        port->serialport->setBytesize(serial::bytesize_t::eightbits);
+        port->serialport->setParity(serial::parity_t::parity_none);
+        port->serialport->setStopbits(serial::stopbits_one);
         thrd_create(&port->cthread, SerialThread, (void *)port);
     }
-    catch (const serial::IOException& ioe)
+    catch (const serial::IOException &ioe)
     {
         strncpy(port->lasterrormsg, ioe.what(), sizeof(port->lasterrormsg) - 1);
 
-        switch (ioe.getErrorNumber()){
+        switch (ioe.getErrorNumber())
+        {
         case 1:
             port->lasterror = FlError::FL_ERROR_PORT_NOT_EXIST;
             break;
@@ -103,7 +112,6 @@ FFI_PLUGIN_EXPORT int fl_open(int flh, char *portname, int baudrate)
             port->lasterror = FlError::FL_ERROR_UNKNOW;
             break;
         }
-        
     }
     catch (const std::exception)
     {
@@ -138,15 +146,6 @@ FFI_PLUGIN_EXPORT int fl_read(int flh, int len, char *buff)
 
     read = fifo_read(port->cfifo, buff, len);
 
-    /*try
-    {
-        res = (int)port->serialport->read((uint8_t *)buff, (size_t)len);
-    }
-    catch (const std::exception &)
-    {
-        port->lasterror = FlError::FL_ERROR_PORT_ALLREADY_OPEN;
-    }*/
-
     return read;
 }
 
@@ -176,9 +175,9 @@ FFI_PLUGIN_EXPORT int fl_close(int flh)
 
         if (port->cthread != 0)
             thrd_join(port->cthread, NULL);
-        
+
         port->serialport->close();
-        if(port->cfifo != 0)
+        if (port->cfifo != 0)
             fifo_destroy(port->cfifo);
     }
     catch (const std::exception &)
@@ -305,5 +304,6 @@ FFI_PLUGIN_EXPORT int fl_ctrl(int flh, FlCtrl param, int value)
 
 FFI_PLUGIN_EXPORT int fl_free(void)
 {
+    flserial_count = 0;
     return 0;
 }
