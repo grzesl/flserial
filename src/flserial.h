@@ -16,6 +16,7 @@
 #endif
 
 
+#define MAX_PORT_FIFO_LEN 128*1024
 #define MAX_PORT_NAME_LEN 512
 #define MAX_PORT_COUNT 16
 

@@ -136,7 +136,7 @@ Serial::SerialImpl::open ()
     throw SerialException ("Serial port already open.");
   }
 
-  fd_ = ::open (port_.c_str(), O_RDWR | O_NOCTTY | O_NONBLOCK, 0);
+  fd_ = ::open (port_.c_str(), O_RDWR | O_NOCTTY | O_NONBLOCK);
 
   int err = errno;
   if (fd_ == -1) {

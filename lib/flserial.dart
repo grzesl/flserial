@@ -56,6 +56,15 @@ Pointer<Char> int8ListToPointerInt8(Uint8List units,
   nativeString.setAll(0, units);
   nativeString[units.length] = 0;
   return pointer.cast<Char>();
+  
+}
+
+Pointer<Double> listToPointerDouble(List<double> sample) {
+  final Pointer<Double> pointer =
+      calloc.allocate<Double>(sample.length, alignment: 8);
+  final nativeSamples = pointer.asTypedList(sample.length);
+  nativeSamples.setAll(0, sample);
+  return pointer.cast<Double>();
 }
 
 /// Native pointer conversion to list
@@ -84,7 +93,6 @@ class FlSerialEventArgs {
 /// Main serial wrapper class over ffi
 class FlSerial {
   int flh = -1;
-  List<int> readBuff = List.empty(growable: true);
   bool prevCTS = false;
   bool prevDSR = false;
   var onSerialData = StreamController<FlSerialEventArgs>();
@@ -162,11 +170,10 @@ class FlSerial {
 
     setCallback(
       flh,
-      callback: (cflh, attrs) async {
-        int read =  _readProcess();
-        if (read > 0) {
+      callback: (cflh, len) async {
+        if (len > 0) {
           onSerialData
-              .add(FlSerialEventArgs(this, readBuff.length, prevCTS, prevDSR));
+              .add(FlSerialEventArgs(this, len, prevCTS, prevDSR));
         }
       },
     );
@@ -215,16 +222,6 @@ class FlSerial {
     return strres;
   }
 
-  /// Internal function for async serial port reading.
-  int _readProcess() {
-    _checkFLH(flh);
-
-    Uint8List list = _readList(1024);
-
-    readBuff.addAll(list);
-    return readBuff.length;
-   }
-
 /*
   Future<int> _readLineStatus() async {
 
@@ -258,37 +255,33 @@ class FlSerial {
 
     final ptrNameCodeUnits = result.cast<Uint8>();
     var list = ptrNameCodeUnits.asTypedList(intres);
-    //allocator.free(result);
+    allocator.free(result);
 
     return list;
   }
 
   /// Read full read bufer from serial port
   Uint8List readList() {
-    return readListLen(readBuff.length);
+    _checkFLH(flh);
+
+    return readListLen(4096);
   }
 
   /// Read desired len from serial port buffer
   Uint8List readListLen(int len) {
     _checkFLH(flh);
 
-    Uint8List old = Uint8List(0);
-    if (readBuff.isNotEmpty) {
-      if (len > readBuff.length) {
-        len = readBuff.length;
-      }
-      old = Uint8List.fromList(readBuff.sublist(0, len));
-      readBuff.removeRange(0, len);
-    }
-    return old;
+    return _readList(len);
   }
 
   /// Read single byte
   int read() {
     _checkFLH(flh);
 
-    if (readBuff.isNotEmpty) {
-      return readBuff.removeAt(0);
+    Uint8List data =_readList(1);
+
+    if (data.isNotEmpty) {
+      return data.first;
     }
     return -1;
   }

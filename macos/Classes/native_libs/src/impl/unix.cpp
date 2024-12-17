@@ -138,8 +138,9 @@ Serial::SerialImpl::open ()
 
   fd_ = ::open (port_.c_str(), O_RDWR | O_NOCTTY | O_NONBLOCK);
 
+  int err = errno;
   if (fd_ == -1) {
-    switch (errno) {
+    switch (err) {
     case EINTR:
       // Recurse because this is a recoverable error.
       open ();
@@ -148,7 +149,9 @@ Serial::SerialImpl::open ()
     case EMFILE:
       THROW (IOException, "Too many file handles open.");
     default:
-      THROW (IOException, errno);
+      char buff[32];
+            sprintf(buff, "%08X", err);
+      THROW (IOException, buff);
     }
   }
 

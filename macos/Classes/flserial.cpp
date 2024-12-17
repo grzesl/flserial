@@ -13,8 +13,10 @@ typedef struct _flserial_
     char lasterrormsg[512];
     thrd_t cthread;
     int breakThread;
-    fifo_t *cfifo;
- 
+    fifo_t *cinfifo;
+    fifo_t *coutfifo;
+    mtx_t inFifo_mutex;
+    mtx_t outFifo_mutex;
     flcallback callback;
 } FlSerial;
 
@@ -22,7 +24,7 @@ int SerialThread(void *aArg)
 {
     FlSerial *serial = (FlSerial *)aArg;
     int res = 0;
-    uint8_t buff[1024];
+    uint8_t buff[4096];
     size_t len = sizeof(buff);
 
     while (!serial->breakThread)
@@ -31,8 +33,19 @@ int SerialThread(void *aArg)
         res = (int)serial->serialport->read((uint8_t *)buff, (size_t)len);
         if (res > 0)
         {
-            fifo_write(serial->cfifo, (const char *)buff, res);
+            mtx_lock(&serial->outFifo_mutex);
+            fifo_write(serial->cinfifo, (const char *)buff, res);
+            mtx_unlock(&serial->outFifo_mutex);
             serial->callback(0, res);
+        }
+
+        if (fifo_data_available(serial->coutfifo))
+        {
+            mtx_lock(&serial->outFifo_mutex);
+            res = (size_t) fifo_read(serial->coutfifo, (char *)buff, (int) len);
+            mtx_unlock(&serial->outFifo_mutex);
+            res = (int)serial->serialport->write((uint8_t *)buff, (size_t)res);
+            
         }
     }
 
@@ -44,7 +57,7 @@ int flserial_count;
 int current_port;
 
 FFI_PLUGIN_EXPORT int fl_set_callback(int flh, flcallback cb)
-{ 
+{
     FlSerial *port = flserial_tab[flh];
     port->callback = cb;
     return 0;
@@ -52,7 +65,7 @@ FFI_PLUGIN_EXPORT int fl_set_callback(int flh, flcallback cb)
 
 FFI_PLUGIN_EXPORT int fl_init(int portCount)
 {
-    if(portCount > MAX_PORT_COUNT)
+    if (portCount > MAX_PORT_COUNT)
         return 1;
 
     flserial_count = portCount;
@@ -85,16 +98,17 @@ FFI_PLUGIN_EXPORT int fl_open(int flh, char *portname, int baudrate)
     port->serialport->setPort(portname);
     port->serialport->setBaudrate(baudrate);
 
-
-
     try
     {
         port->serialport->open();
-        port->cfifo = fifo_create(1024 * 64);
+        port->cinfifo = fifo_create(MAX_PORT_FIFO_LEN);
+        port->coutfifo = fifo_create(MAX_PORT_FIFO_LEN);
         port->serialport->setBytesize(serial::bytesize_t::eightbits);
         port->serialport->setParity(serial::parity_t::parity_none);
         port->serialport->setStopbits(serial::stopbits_one);
         thrd_create(&port->cthread, SerialThread, (void *)port);
+        mtx_init(&port->inFifo_mutex, mtx_plain);
+        mtx_init(&port->outFifo_mutex, mtx_plain);
     }
     catch (const serial::IOException &ioe)
     {
@@ -144,7 +158,9 @@ FFI_PLUGIN_EXPORT int fl_read(int flh, int len, char *buff)
     size_t size = 0;
     int read = 0;
 
-    read = fifo_read(port->cfifo, buff, len);
+    mtx_lock(&port->inFifo_mutex);
+    read = fifo_read(port->cinfifo, buff, len);
+    mtx_unlock(&port->inFifo_mutex);
 
     return read;
 }
@@ -155,7 +171,9 @@ FFI_PLUGIN_EXPORT int fl_write(int flh, int len, char *data)
     int res = 0;
     try
     {
-        res = (int)port->serialport->write((uint8_t *)data, (size_t)len);
+        mtx_lock(&port->outFifo_mutex);
+        res = fifo_write(port->coutfifo, data, len);
+        mtx_unlock(&port->outFifo_mutex);
     }
     catch (const std::exception &)
     {
@@ -177,8 +195,13 @@ FFI_PLUGIN_EXPORT int fl_close(int flh)
             thrd_join(port->cthread, NULL);
 
         port->serialport->close();
-        if (port->cfifo != 0)
-            fifo_destroy(port->cfifo);
+        if (port->cinfifo != 0)
+            fifo_destroy(port->cinfifo);
+        if (port->coutfifo != 0)
+            fifo_destroy(port->coutfifo);
+
+        mtx_destroy(&port->inFifo_mutex);
+        mtx_destroy(&port->outFifo_mutex);
     }
     catch (const std::exception &)
     {
