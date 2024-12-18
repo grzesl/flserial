@@ -1,3 +1,6 @@
 {
-    "cmake.sourceDirectory": "C:/Praca/ProjektyFlutter/flserial/example/windows/flutter"
+    "cmake.sourceDirectory": "C:/Praca/ProjektyFlutter/flserial/example/windows/flutter",
+    "files.associations": {
+        "chrono": "c"
+    }
 }

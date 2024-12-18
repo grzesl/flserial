@@ -10,6 +10,7 @@ import 'package:flserial/flserial_exception.dart';
 import 'flserial_bindings_generated.dart';
 
 const String _libName = 'flserial';
+const int _serialReadBuffLen = 1024 * 32;
 
 /// The dynamic library in which the symbols for [FlserialBindings] can be found.
 final DynamicLibrary dylib = () {
@@ -96,7 +97,7 @@ class FlSerial {
   bool prevCTS = false;
   bool prevDSR = false;
   var onSerialData = StreamController<FlSerialEventArgs>();
-
+  Pointer<Char> serialReadBuff = Pointer.fromAddress(0);
   /// Init should be called at program start, after FlSerial creation
   /// Function is used to make array of internal port structs for 16 parallel processing ports
   int init() {
@@ -167,6 +168,9 @@ class FlSerial {
     }
 
     onSerialData = StreamController<FlSerialEventArgs>();
+
+    Allocator allocator = calloc;
+    serialReadBuff = allocator<Char>(_serialReadBuffLen);
 
     setCallback(
       flh,
@@ -244,18 +248,19 @@ class FlSerial {
   Uint8List _readList(int len) {
     _checkFLH(flh);
 
-    Allocator allocator = calloc;
-    var result = allocator<Char>(len);
-    int intres = bindings.fl_read(flh, len, result);
+    if(len > _serialReadBuffLen)
+      {
+        len = _serialReadBuffLen;
+      }
+
+    int intres = bindings.fl_read(flh, len, serialReadBuff);
 
     if (intres <= 0) {
-      allocator.free(result);
       return Uint8List(0);
     }
 
-    final ptrNameCodeUnits = result.cast<Uint8>();
+    final ptrNameCodeUnits = serialReadBuff.cast<Uint8>();
     var list = ptrNameCodeUnits.asTypedList(intres);
-    allocator.free(result);
 
     return list;
   }
@@ -302,6 +307,10 @@ class FlSerial {
     _checkFLH(flh);
     bindings.fl_close(flh);
     onSerialData.close();
+    if(serialReadBuff.value != 0){
+      Allocator allocator = calloc;
+      allocator.free(serialReadBuff);
+    }
     flh = -1;
     return flh;
   }

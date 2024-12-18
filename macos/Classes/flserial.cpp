@@ -4,6 +4,8 @@
 #include "native_libs/include/fifo.h"
 #include <iostream>
 
+#define FL_SERIAL_BUFF_LEN (32 * 1024)
+
 typedef struct _flserial_
 {
     char portname[MAX_PORT_NAME_LEN + 1];
@@ -24,28 +26,38 @@ int SerialThread(void *aArg)
 {
     FlSerial *serial = (FlSerial *)aArg;
     int res = 0;
-    uint8_t buff[4096];
+    uint8_t buff[FL_SERIAL_BUFF_LEN];
     size_t len = sizeof(buff);
 
     while (!serial->breakThread)
     {
 
-        res = (int)serial->serialport->read((uint8_t *)buff, (size_t)len);
-        if (res > 0)
+        try
         {
-            mtx_lock(&serial->outFifo_mutex);
-            fifo_write(serial->cinfifo, (const char *)buff, res);
-            mtx_unlock(&serial->outFifo_mutex);
-            serial->callback(0, res);
-        }
 
-        if (fifo_data_available(serial->coutfifo))
+            res = (int)serial->serialport->read((uint8_t *)buff, (size_t)len);
+            if (res > 0)
+            {
+                mtx_lock(&serial->outFifo_mutex);
+                fifo_write(serial->cinfifo, (const char *)buff, res);
+                mtx_unlock(&serial->outFifo_mutex);
+                serial->callback(0, res);
+                // thrd_sleep(&duration, &rem);
+                continue;
+            }
+
+            if (fifo_data_available(serial->coutfifo))
+            {
+                mtx_lock(&serial->outFifo_mutex);
+                res = (size_t)fifo_read(serial->coutfifo, (char *)buff, (int)len);
+                mtx_unlock(&serial->outFifo_mutex);
+                res = (int)serial->serialport->write((uint8_t *)buff, (size_t)res);
+            }
+        }
+        catch (const serial::IOException &ioe)
         {
-            mtx_lock(&serial->outFifo_mutex);
-            res = (size_t) fifo_read(serial->coutfifo, (char *)buff, (int) len);
-            mtx_unlock(&serial->outFifo_mutex);
-            res = (int)serial->serialport->write((uint8_t *)buff, (size_t)res);
-            
+            serial->lasterror = FL_ERROR_IO;
+            strncpy(serial->lasterrormsg , ioe.what(), sizeof(serial->lasterrormsg) - 1);
         }
     }
 
@@ -93,7 +105,7 @@ FFI_PLUGIN_EXPORT int fl_open(int flh, char *portname, int baudrate)
 
     port->serialport = new serial::Serial();
 #if !defined(__linux__) && !defined(__APPLE__)
-    port->serialport->setTimeout(serial::Timeout(0, 1, 0, 0, 0));
+    port->serialport->setTimeout(serial::Timeout(FL_SERIAL_BUFF_LEN, 2, 0, 0, 0));
 #endif // #if defined(__linux__)
     port->serialport->setPort(portname);
     port->serialport->setBaudrate(baudrate);
