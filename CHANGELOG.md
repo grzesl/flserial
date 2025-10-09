@@ -1,3 +1,6 @@
+## 0.3.5
+* Add support 16KB Page Size
+
 ## 0.3.4
 * Changelog fix
 
