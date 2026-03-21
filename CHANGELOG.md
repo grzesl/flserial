@@ -1,3 +1,6 @@
+## 0.5.0
+* Completely rewritten driver
+
 ## 0.3.5
 * Add support 16KB Page Size
 

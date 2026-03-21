@@ -1,79 +1,87 @@
+#ifndef FLSERIAL_H
+#define FLSERIAL_H
+
 #include <stdint.h>
-#include <stdio.h>
-#include <stdlib.h>
+#include <stdbool.h>
 
-#if _WIN32
-#include <windows.h>
+// Definicja makra dla eksportu symboli (Windows vs POSIX)
+#if defined(_WIN32)
+    #define FFI_EXPORT __declspec(dllexport)
 #else
-#include <pthread.h>
-#include <unistd.h>
+    #define FFI_EXPORT __attribute__((visibility("default"))) __attribute__((used))
 #endif
-
-#if _WIN32
-#define FFI_PLUGIN_EXPORT __declspec(dllexport)
-#else
-#define FFI_PLUGIN_EXPORT
-#endif
-
-
-#define MAX_PORT_FIFO_LEN 256*1024
-#define MAX_PORT_NAME_LEN 512
-#define MAX_PORT_COUNT 16
-
-typedef enum FlCtrl {
-  FL_CTRL_LAST_ERROR,
-  FL_CTRL_IS_PORT_OPEN,
-  FL_CTRL_BREAK,
-  FL_CTRL_SET_RTS,
-  FL_CTRL_GET_CTS,
-  FL_CTRL_SET_DTR,
-  FL_CTRL_GET_DSR,
-  FL_CTRL_SET_BYTESIZE_5,
-  FL_CTRL_SET_BYTESIZE_6,
-  FL_CTRL_SET_BYTESIZE_7,
-  FL_CTRL_SET_BYTESIZE_8,
-  FL_CTRL_SET_PARITY_NONE,
-  FL_CTRL_SET_PARITY_ODD,
-  FL_CTRL_SET_PARITY_EVEN,
-  FL_CTRL_SET_PARITY_MARK,
-  FL_CTRL_SET_PARITY_SPACE,
-  FL_CTRL_SET_STOPBITS_ONE,
-  FL_CTRL_SET_STOPBITS_TWO,
-  FL_CTRL_SET_STOPBITS_ONE_POINT_FIVE,
-  FL_CTRL_SET_FLOWCONTROL_NONE,
-  FL_CTRL_SET_FLOWCONTROL_HARDWARE,
-  FL_CTRL_SET_FLOWCONTROL_SOFTWARE,
-  FL_CTRL_GET_STATUS_CHANGE,
-  FL_CTRL_LAST,
-} FlCtrl;
-
-typedef enum FlError {
-    FL_ERROR_OK,
-    FL_ERROR_UNKNOW,
-    FL_ERROR_PORT_ALLREADY_OPEN,
-    FL_ERROR_PORT_NOT_EXIST,
-    FL_ERROR_IO,
-    FL_ERROR_HANDLER,
-    FL_ERROR_LAST,
-} FlError;
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-typedef void (*flcallback)(unsigned int, unsigned int);
+// Opaque pointer dla klasy SerialPort (Dart widzi to jako Pointer<Void>)
+typedef struct SerialPort SerialPort;
 
-FFI_PLUGIN_EXPORT int fl_init (int portCount);
-FFI_PLUGIN_EXPORT int fl_set_callback(int flh, flcallback cb);
-FFI_PLUGIN_EXPORT int fl_ports (int index, int buffsize, char *buff);
-FFI_PLUGIN_EXPORT int fl_open (int flh, char *portname, int baudrate);
-FFI_PLUGIN_EXPORT int fl_read (int flh, int len, char *buff);
-FFI_PLUGIN_EXPORT int fl_write (int flh, int len, char *data);
-FFI_PLUGIN_EXPORT int fl_close (int flh);
-FFI_PLUGIN_EXPORT int fl_ctrl (int flh, FlCtrl param, int value);
-FFI_PLUGIN_EXPORT int fl_free (void);
+// --- INICJALIZACJA ---
 
+/**
+ * Inicjalizuje Dart Native API. Musi być wywołane przed 
+ * jakąkolwiek próbą wysłania danych przez NativePort.
+ */
+FFI_EXPORT intptr_t InitDartApiDL(void* data);
+
+/**
+ * Tworzy nową instancję sterownika portu szeregowego.
+ */
+FFI_EXPORT SerialPort* serial_new();
+
+/**
+ * Zwalnia pamięć i zamyka port.
+ */
+FFI_EXPORT void serial_free(SerialPort* sp);
+
+// --- KOMUNIKACJA ---
+
+/**
+ * Rejestruje ID portu Darta, do którego C++ będzie wysyłać dane i zdarzenia.
+ */
+FFI_EXPORT void register_port(SerialPort* sp, int64_t port_id);
+
+/**
+ * Otwiera port z zaawansowaną konfiguracją.
+ * parity: 0=none, 1=odd, 2=even
+ * stopBits: 1 lub 2
+ */
+FFI_EXPORT bool serial_open_ext(SerialPort* sp, const char* path, int baud, int dataBits, int stopBits, int parity);
+
+/**
+ * Zamyka fizyczne połączenie z portem.
+ */
+FFI_EXPORT void serial_close(SerialPort* sp);
+
+/**
+ * Wysyła surowe bajty do portu.
+ */
+FFI_EXPORT void serial_write(SerialPort* sp, const uint8_t* data, int length);
+
+// --- LINIE MODEMOWE (WYJŚCIA) ---
+
+/**
+ * Ustawia stan linii DTR (Data Terminal Ready).
+ */
+FFI_EXPORT void serial_set_dtr(SerialPort* sp, int active);
+
+/**
+ * Ustawia stan linii RTS (Request To Send).
+ */
+FFI_EXPORT void serial_set_rts(SerialPort* sp, int active);
+
+// --- LINIE MODEMOWE (WEJŚCIA) ---
+
+/**
+ * Pobiera stan linii wejściowych jako maskę bitową:
+ * Bit 0: CTS, Bit 1: DSR, Bit 2: RI, Bit 3: DCD
+ */
+FFI_EXPORT int serial_get_modem_status(SerialPort* sp);
 
 #ifdef __cplusplus
 }
 #endif
+
+#endif // FLSERIAL_H
