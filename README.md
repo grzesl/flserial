@@ -14,128 +14,48 @@ A high-performance, asynchronous serial port driver for **Flutter**, utilizing *
 * **Native Assets Ready**: Uses the modern Flutter `hook/build.dart` workflow for seamless cross-platform compilation.
 
 ---
-
-## 📂 Project Structure
-
-```text
-flserial/
-├── hook/
-│   └── build.dart          # Native Assets build script (MSVC/Clang/GCC)
-├── lib/
-│   ├── flserial.dart       # High-level Dart API & Stream logic
-│   └── flserial_bindings.dart # FFI generated bindings
-├── src/
-│   ├── SerialPort.hpp      # Core C++ Driver (Cross-platform)
-│   ├── flserial.cpp/h      # C-style FFI Bridge
-│   └── dart_api_dl.cpp/h   # Dart Native API (Required for Ports)
-├── example/
-│   └── lib/main.dart       # Full-featured Serial Terminal example
-└── pubspec.yaml
 ```
+import 'dart:typed_data';
+import 'package:flserial/flserial.dart';
 
-🛠 Prerequisites & Installation
-Windows
+void main() async {
+  // 1. Initialize the driver instance
+  final serial = FlSerial();
 
-    Visual Studio 2022: Install the "Desktop development with C++" workload.
+  // 2. Set up the listener BEFORE opening the port 
+  // This ensures we don't miss any data sent immediately after connection
+  serial.events.listen((event) {
+    if (event.type == SerialEventType.data) {
+      // Handle incoming raw bytes as a string
+      final received = String.fromCharCodes(event.data as Uint8List);
+      print("📥 Received: $received");
 
-    Permissions: None required (standard user access for COM ports).
+      // 5. Close the port after receiving the response
+      serial.close();
+      print("🔌 Port closed successfully.");
+    }
+  });
 
-Linux
+  // 3. Open the port with specific configuration
+  // COM3 for Windows, /dev/ttyUSB0 for Linux/macOS
+  bool success = serial.open("COM3", SerialConfig(baudRate: 9600));
 
-    Build Tools: sudo apt install clang cmake ninja-build build-essential libc++-dev.
+  if (success) {
+    print("✅ Port opened!");
 
-    Linker Fix: If you encounter ld errors, ensure lld is installed: sudo apt install lld.
-
-    Permissions: Add your user to the dialout group:
-    Bash
-
-    sudo usermod -a -G dialout $USER
-
-    Note: You must log out and back in for changes to take effect.
-
-macOS
-
-    Xcode: Command Line Tools must be installed.
-
-    Entitlements: If your app is Sandboxed, add the following to DebugProfile.entitlements and Release.entitlements:
-    XML
-
-    <key>com.apple.security.device.serial</key>
-    <true/>
-
-📖 Usage Guide
-1. Initialization
-
-Create an instance of the driver. It will automatically initialize the Dart Native API.
-Dart
-
-final serial = FlSerial();
-
-2. Listening to Events
-
-Data and hardware status changes are pushed through a single stream.
-Dart
-
-serial.events.listen((event) {
-  switch (event.type) {
-    case SerialEventType.data:
-      final rawData = event.data as Uint8List;
-      print("Received: ${String.fromCharCodes(rawData)}");
-      break;
-
-    case SerialEventType.lineStatusChanged:
-      final lines = event.data as Map<String, bool>;
-      print("Modem Status - CTS: ${lines['CTS']}, DCD: ${lines['DCD']}");
-      break;
-
-    case SerialEventType.connected:
-      print("Port is now open and ready.");
-      break;
-
-    case SerialEventType.disconnected:
-      print("Port was closed.");
-      break;
-      
-    case SerialEventType.error:
-      print("Hardware Error: ${event.data}");
-      break;
-  }
-});
-
-3. Opening a Port
-
-Configure the port with SerialConfig.
-Dart
-
-bool success = serial.open(
-  "COM3", // Or "/dev/ttyUSB0" on Linux
-  SerialConfig(
-    baudRate: 115200,
-    dataBits: 8,
-    stopBits: 1,
-    parity: 0, // 0: None, 1: Odd, 2: Even
-  ),
-);
-
-4. Writing Data
-
-Send strings or raw bytes directly to the hardware.
-Dart
-
-void sendCommand(String cmd) {
-  if (serial.isConnected) {
-    serial.write(Uint8List.fromList("$cmd\r\n".codeUnits));
+    // 4. Send a command (convert String to Uint8List)
+    final command = Uint8List.fromList("PING\n".codeUnits);
+    serial.write(command);
+    print("📤 Sent: PING");
+  } else {
+    print("❌ Failed to open port. Check if device is connected.");
   }
 }
+```
 
-⚙️ Technical Specifications
-Parameter	Performance / Setting
-Internal Latency	< 1ms (native processing)
-Max Baud Rate	Tested up to 921600 bps
-Read Loop Interval	1ms (Asynchronous)
-Modem Polling	1000ms (Power-efficient throttling)
-Thread Safety	Atomic-guarded worker thread
-Memory Management	Opaque pointers (No Dart heap pressure)
+---
+
+
 🛡 License
 
 MIT License
