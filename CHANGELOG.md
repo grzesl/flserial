@@ -1,3 +1,6 @@
+## 0.5.2
+* Add Dart C API
+
 ## 0.5.1
 * Update readme
 
