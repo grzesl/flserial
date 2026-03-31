@@ -1,4 +1,3 @@
-import 'dart:async';
 
 enum SerialEventType { data, connected, disconnected, lineStatusChanged }
 
