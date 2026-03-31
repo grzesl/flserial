@@ -19,7 +19,11 @@
 #include <errno.h>
 #include <termios.h>
 #include <unistd.h>
+#include <string.h>
 #include <sys/ioctl.h>
+#if defined(__APPLE__)
+#include <IOKit/serial/ioss.h>
+#endif
 #define PLATFORM_POSIX
 #endif
 
@@ -59,7 +63,14 @@ public:
         close(); // Upewnij się, że stary port jest zamknięty
 
 #ifdef PLATFORM_WINDOWS
-        hSerial = CreateFileA(portName.c_str(), GENERIC_READ | GENERIC_WRITE, 0, NULL, OPEN_EXISTING, 0, NULL);
+        // On Windows, COM port numbers >= 10 require the \\.\COMx prefix
+        // for CreateFileA to find them.
+        std::string winPath = portName;
+        if (portName.substr(0, 3) == "COM" && portName.substr(0, 4) != "\\\\.\\")
+        {
+            winPath = "\\\\.\\" + portName;
+        }
+        hSerial = CreateFileA(winPath.c_str(), GENERIC_READ | GENERIC_WRITE, 0, NULL, OPEN_EXISTING, 0, NULL);
         if (hSerial == INVALID_HANDLE_VALUE)
             return false;
 
@@ -102,28 +113,99 @@ public:
             return false;
         }
 
+        // Clear the non-blocking flag so read/write behave correctly.
+        // O_NDELAY was needed only during open to avoid blocking on DCD.
+        int flags = fcntl(fd, F_GETFL, 0);
+        if (flags != -1)
+            fcntl(fd, F_SETFL, flags & ~O_NDELAY);
+
         struct termios tty;
+        memset(&tty, 0, sizeof(tty));
         tcgetattr(fd, &tty);
 
-        speed_t speed = B115200; // Uproszczone mapowanie
-        if (baudRate == 9600)
-            speed = B9600;
-        else if (baudRate == 19200)
-            speed = B19200;
-        else if (baudRate == 38400)
-            speed = B38400;
+        // Raw mode: disable all input/output processing, canonical mode,
+        // echo, and signal generation.  Required for binary serial I/O.
+        cfmakeraw(&tty);
+
+        // Re-enable receiver and ignore modem control lines.
+        tty.c_cflag |= (CLOCAL | CREAD);
+
+        // ── Baud rate ────────────────────────────────────────────
+        speed_t speed = B115200;
+        switch (baudRate)
+        {
+        case 1200:    speed = B1200;    break;
+        case 2400:    speed = B2400;    break;
+        case 4800:    speed = B4800;    break;
+        case 9600:    speed = B9600;    break;
+        case 19200:   speed = B19200;   break;
+        case 38400:   speed = B38400;   break;
+        case 57600:   speed = B57600;   break;
+        case 115200:  speed = B115200;  break;
+        case 230400:  speed = B230400;  break;
+#ifdef B460800
+        case 460800:  speed = B460800;  break;
+#endif
+#ifdef B500000
+        case 500000:  speed = B500000;  break;
+#endif
+#ifdef B576000
+        case 576000:  speed = B576000;  break;
+#endif
+#ifdef B921600
+        case 921600:  speed = B921600;  break;
+#endif
+#ifdef B1000000
+        case 1000000: speed = B1000000; break;
+#endif
+        default:      speed = B115200;  break;
+        }
 
         cfsetospeed(&tty, speed);
         cfsetispeed(&tty, speed);
-        tty.c_cflag = (tty.c_cflag & ~CSIZE) | (dataBits == 7 ? CS7 : CS8);
-        tty.c_cflag |= (CLOCAL | CREAD);
+
+#if defined(__APPLE__)
+        // macOS: use iossiospeed ioctl for non-standard baud rates.
+        // This overrides the speed_t value set above when the standard
+        // POSIX constants don't cover the requested rate.
+        if (baudRate != 1200 && baudRate != 2400 && baudRate != 4800 &&
+            baudRate != 9600 && baudRate != 19200 && baudRate != 38400 &&
+            baudRate != 57600 && baudRate != 115200 && baudRate != 230400)
+        {
+            speed_t customSpeed = (speed_t)baudRate;
+            ioctl(fd, IOSSIOSPEED, &customSpeed);
+        }
+#endif
+
+        // ── Data bits ────────────────────────────────────────────
+        tty.c_cflag &= ~CSIZE;
+        switch (dataBits)
+        {
+        case 5: tty.c_cflag |= CS5; break;
+        case 6: tty.c_cflag |= CS6; break;
+        case 7: tty.c_cflag |= CS7; break;
+        default: tty.c_cflag |= CS8; break;
+        }
+
+        // ── Parity ──────────────────────────────────────────────
+        tty.c_cflag &= ~(PARENB | PARODD);
         if (parity == 1)
-            tty.c_cflag |= (PARENB | PARODD);
+            tty.c_cflag |= (PARENB | PARODD); // Odd
         else if (parity == 2)
-            tty.c_cflag |= PARENB;
+            tty.c_cflag |= PARENB;             // Even
+
+        // ── Stop bits ───────────────────────────────────────────
         if (stopBits == 2)
             tty.c_cflag |= CSTOPB;
+        else
+            tty.c_cflag &= ~CSTOPB;
+
+        // ── VMIN/VTIME for blocking read ────────────────────────
+        tty.c_cc[VMIN] = 0;   // Return as soon as any data is available
+        tty.c_cc[VTIME] = 1;  // 100ms timeout per read (tenths of a second)
+
         tcsetattr(fd, TCSANOW, &tty);
+        tcflush(fd, TCIOFLUSH); // Discard any stale data in buffers
 #endif
 
         running = true;
@@ -171,7 +253,22 @@ public:
         DWORD written;
         WriteFile(hSerial, data, length, &written, NULL);
 #else
-        ::write(fd, data, length);
+        int totalWritten = 0;
+        while (totalWritten < length)
+        {
+            ssize_t n = ::write(fd, data + totalWritten, length - totalWritten);
+            if (n < 0)
+            {
+                if (errno == EAGAIN || errno == EWOULDBLOCK)
+                {
+                    std::this_thread::sleep_for(std::chrono::milliseconds(1));
+                    continue;
+                }
+                send_simple_event(EVENT_ERROR);
+                break;
+            }
+            totalWritten += (int)n;
+        }
 #endif
     }
 

@@ -123,6 +123,8 @@ class FlSerial {
 
   /// Obsługa wiadomości z NativePort (C++)
   void _handleNativeMessage(dynamic msg) {
+    if (_eventController.isClosed) return;
+
     if (msg is Uint8List) {
       _eventController.add(SerialEvent(SerialEventType.data, msg));
     } else if (msg is List && msg.isNotEmpty) {
