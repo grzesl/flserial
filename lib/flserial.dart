@@ -68,7 +68,12 @@ class FlSerial {
 
     final DynamicLibrary dylib = () {
       if (Platform.isMacOS || Platform.isIOS) {
-        return DynamicLibrary.open('$_libName.framework/$_libName');
+        // Bundled .app uses framework format; flutter test uses bare .dylib
+        try {
+          return DynamicLibrary.open('$_libName.framework/$_libName');
+        } catch (_) {
+          return DynamicLibrary.open('lib$_libName.dylib');
+        }
       }
       if (Platform.isAndroid || Platform.isLinux) {
         return DynamicLibrary.open('lib$_libName.so');
