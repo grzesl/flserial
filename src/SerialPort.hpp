@@ -223,25 +223,28 @@ public:
     {
         if (running)
         {
-
             running = false;
 
-            if (readThread.joinable())
-                readThread.join();
-
 #ifdef PLATFORM_WINDOWS
+            // On Windows, close the handle first so the blocking
+            // ReadFile in the read thread returns immediately.
             if (hSerial != INVALID_HANDLE_VALUE)
             {
                 CloseHandle(hSerial);
                 hSerial = INVALID_HANDLE_VALUE;
             }
 #else
+            // On POSIX, close the fd first so the blocking
+            // read() in the read thread returns immediately (-1/EBADF).
             if (fd != -1)
             {
                 ::close(fd);
                 fd = -1;
             }
 #endif
+
+            if (readThread.joinable())
+                readThread.join();
 
             send_simple_event(EVENT_DISCONNECTED);
         }
@@ -367,6 +370,11 @@ private:
             }
 #else
             bytesRead = ::read(fd, buffer, sizeof(buffer));
+            if (bytesRead < 0)
+            {
+                // fd was closed or error occurred — exit the loop.
+                break;
+            }
 #endif
             if (bytesRead > 0)
             {
