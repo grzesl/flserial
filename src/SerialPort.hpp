@@ -164,19 +164,6 @@ public:
         cfsetospeed(&tty, speed);
         cfsetispeed(&tty, speed);
 
-#if defined(__APPLE__)
-        // macOS: use iossiospeed ioctl for non-standard baud rates.
-        // This overrides the speed_t value set above when the standard
-        // POSIX constants don't cover the requested rate.
-        if (baudRate != 1200 && baudRate != 2400 && baudRate != 4800 &&
-            baudRate != 9600 && baudRate != 19200 && baudRate != 38400 &&
-            baudRate != 57600 && baudRate != 115200 && baudRate != 230400)
-        {
-            speed_t customSpeed = (speed_t)baudRate;
-            ioctl(fd, IOSSIOSPEED, &customSpeed);
-        }
-#endif
-
         // ── Data bits ────────────────────────────────────────────
         tty.c_cflag &= ~CSIZE;
         switch (dataBits)
@@ -205,6 +192,19 @@ public:
         tty.c_cc[VTIME] = 1;  // 100ms timeout per read (tenths of a second)
 
         tcsetattr(fd, TCSANOW, &tty);
+
+#if defined(__APPLE__)
+        // macOS: use IOSSIOSPEED ioctl for non-standard baud rates.
+        // MUST come after tcsetattr, which would overwrite the speed.
+        if (baudRate != 1200 && baudRate != 2400 && baudRate != 4800 &&
+            baudRate != 9600 && baudRate != 19200 && baudRate != 38400 &&
+            baudRate != 57600 && baudRate != 115200 && baudRate != 230400)
+        {
+            speed_t customSpeed = (speed_t)baudRate;
+            ioctl(fd, IOSSIOSPEED, &customSpeed);
+        }
+#endif
+
         tcflush(fd, TCIOFLUSH); // Discard any stale data in buffers
 #endif
 

@@ -11,6 +11,7 @@ headers:
   include-directives:
     - "src/flserial.h"
 ffi-native:
+  asset-id: 'package:flserial/flserial'
 comments:
   style: any
   length: full

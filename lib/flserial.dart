@@ -1,11 +1,9 @@
 import 'dart:async';
 import 'dart:ffi' as ffi;
-import 'dart:ffi';
-import 'dart:io';
 import 'dart:isolate';
 import 'dart:typed_data';
 import 'package:ffi/ffi.dart';
-import 'package:flserial/flserial_port_bindings.dart';
+import 'package:flserial/flserial_bindings_generated.dart' as native;
 import 'package:flserial/serial_scanner.dart';
 
 /// Typy zdarzeń przesyłanych z C++ do Darta
@@ -44,8 +42,7 @@ class SerialConfig {
 }
 
 class FlSerial {
-  late FLSerialBindings _bindings;
-  ffi.Pointer<SerialPort>? _serialPtr;
+  ffi.Pointer<native.SerialPort>? _serialPtr;
 
   ReceivePort? _receivePort;
   StreamSubscription? _subscription;
@@ -64,34 +61,12 @@ class FlSerial {
   }
 
   void _initNative() {
-    final _libName = 'flserial';
-
-    final DynamicLibrary dylib = () {
-      if (Platform.isMacOS || Platform.isIOS) {
-        // Bundled .app uses framework format; flutter test uses bare .dylib
-        try {
-          return DynamicLibrary.open('$_libName.framework/$_libName');
-        } catch (_) {
-          return DynamicLibrary.open('lib$_libName.dylib');
-        }
-      }
-      if (Platform.isAndroid || Platform.isLinux) {
-        return DynamicLibrary.open('lib$_libName.so');
-      }
-      if (Platform.isWindows) {
-        return DynamicLibrary.open('$_libName.dll');
-      }
-      throw UnsupportedError('Unknown platform: ${Platform.operatingSystem}');
-    }();
-
-    _bindings = FLSerialBindings(dylib);
-
     // Inicjalizacja Dart VM API
-    if (_bindings.InitDartApiDL(ffi.NativeApi.initializeApiDLData) != 0) {
+    if (native.InitDartApiDL(ffi.NativeApi.initializeApiDLData) != 0) {
       throw Exception("FFI: InitDartApiDL failed");
     }
 
-    _serialPtr = _bindings.serial_new();
+    _serialPtr = native.serial_new();
   }
 
   /// Otwiera port z pełną konfiguracją
@@ -103,10 +78,9 @@ class FlSerial {
 
     final pathPtr = path.toNativeUtf8();
     try {
-      _bindings.register_port(_serialPtr!, _receivePort!.sendPort.nativePort);
+      native.register_port(_serialPtr!, _receivePort!.sendPort.nativePort);
 
-      // Zakł\adamy rozszerzoną funkcję w C++: serial_open_ext
-      final success = _bindings.serial_open_ext(
+      final success = native.serial_open_ext(
         _serialPtr!,
         pathPtr.cast(),
         config.baudRate,
@@ -157,20 +131,20 @@ class FlSerial {
   /// Ustawia linię DTR (Data Terminal Ready)
   void setDTR(bool active) {
     if (_serialPtr != null)
-      _bindings.serial_set_dtr(_serialPtr!, active ? 1 : 0);
+      native.serial_set_dtr(_serialPtr!, active ? 1 : 0);
   }
 
   /// Ustawia linię RTS (Request To Send)
   void setRTS(bool active) {
     if (_serialPtr != null)
-      _bindings.serial_set_rts(_serialPtr!, active ? 1 : 0);
+      native.serial_set_rts(_serialPtr!, active ? 1 : 0);
   }
 
   /// Pobiera aktualny stan linii wejściowych (CTS, DSR, RI, DCD)
   /// Zwraca mapę flag lub rzuca błąd jeśli port zamknięty
   Future<Map<String, bool>> getModemStatus() async {
     if (_serialPtr == null) return {};
-    final int status = _bindings.serial_get_modem_status(_serialPtr!);
+    final int status = native.serial_get_modem_status(_serialPtr!);
     return {
       'CTS': (status & 0x01) != 0, // Clear To Send
       'DSR': (status & 0x02) != 0, // Data Set Ready
@@ -185,13 +159,13 @@ class FlSerial {
     if (_serialPtr == null) return;
     final ptr = malloc.allocate<ffi.Uint8>(data.length);
     ptr.asTypedList(data.length).setAll(0, data);
-    _bindings.serial_write(_serialPtr!, ptr.cast(), data.length);
+    native.serial_write(_serialPtr!, ptr.cast(), data.length);
     malloc.free(ptr);
   }
 
-  void close() async {
-    if (_serialPtr != null) _bindings.serial_close(_serialPtr!);
-    await Future.delayed(Duration(milliseconds: 0));
+  Future<void> close() async {
+    if (_serialPtr != null) native.serial_close(_serialPtr!);
+    await Future.delayed(Duration.zero);
     _stopSession();
   }
 
@@ -202,10 +176,10 @@ class FlSerial {
     _receivePort = null;
   }
 
-  void dispose() {
-    close();
+  Future<void> dispose() async {
+    await close();
     if (_serialPtr != null) {
-      _bindings.serial_free(_serialPtr!);
+      native.serial_free(_serialPtr!);
       _serialPtr = null;
     }
     _eventController.close();
