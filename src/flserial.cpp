@@ -25,10 +25,7 @@ FFI_EXPORT SerialPort* serial_new() {
 }
 
 FFI_EXPORT void serial_free(SerialPort* sp) {
-    if (sp) {
-        sp->close();
-        delete sp;
-    }
+    delete sp;
 }
 
 // --- KOMUNIKACJA I KONFIGURACJA ---

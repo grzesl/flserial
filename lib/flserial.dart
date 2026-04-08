@@ -18,7 +18,8 @@ enum SerialEventType {
 
   final int value;
   const SerialEventType(this.value);
-  static SerialEventType fromInt(int i) => SerialEventType.values[i];
+  static SerialEventType? fromInt(int i) =>
+      i >= 0 && i < SerialEventType.values.length ? SerialEventType.values[i] : null;
 }
 
 /// Struktura zdarzenia portu szeregowego
@@ -67,16 +68,20 @@ class FlSerial {
     final _libName = 'flserial';
 
     final DynamicLibrary dylib = () {
-      if (Platform.isMacOS || Platform.isIOS) {
-        return DynamicLibrary.open('$_libName.framework/$_libName');
+      try {
+        if (Platform.isMacOS || Platform.isIOS) {
+          return DynamicLibrary.open('$_libName.framework/$_libName');
+        }
+        if (Platform.isAndroid || Platform.isLinux) {
+          return DynamicLibrary.open('lib$_libName.so');
+        }
+        if (Platform.isWindows) {
+          return DynamicLibrary.open('$_libName.dll');
+        }
+        throw UnsupportedError('Unknown platform: ${Platform.operatingSystem}');
+      } catch (e) {
+        throw UnsupportedError('flserial: nie można załadować biblioteki natywnej: $e');
       }
-      if (Platform.isAndroid || Platform.isLinux) {
-        return DynamicLibrary.open('lib$_libName.so');
-      }
-      if (Platform.isWindows) {
-        return DynamicLibrary.open('$_libName.dll');
-      }
-      throw UnsupportedError('Unknown platform: ${Platform.operatingSystem}');
     }();
 
     _bindings = FLSerialBindings(dylib);
@@ -127,6 +132,7 @@ class FlSerial {
       _eventController.add(SerialEvent(SerialEventType.data, msg));
     } else if (msg is List && msg.isNotEmpty) {
       final type = SerialEventType.fromInt(msg[0] as int);
+      if (type == null) return;
 
       // Jeśli to zmiana linii, msg[1] to int (maska bitowa z C++)
       if (type == SerialEventType.lineStatusChanged && msg.length > 1) {
@@ -149,19 +155,21 @@ class FlSerial {
 
   /// Ustawia linię DTR (Data Terminal Ready)
   void setDTR(bool active) {
-    if (_serialPtr != null)
+    if (_serialPtr != null) {
       _bindings.serial_set_dtr(_serialPtr!, active ? 1 : 0);
+    }
   }
 
   /// Ustawia linię RTS (Request To Send)
   void setRTS(bool active) {
-    if (_serialPtr != null)
+    if (_serialPtr != null) {
       _bindings.serial_set_rts(_serialPtr!, active ? 1 : 0);
+    }
   }
 
   /// Pobiera aktualny stan linii wejściowych (CTS, DSR, RI, DCD)
   /// Zwraca mapę flag lub rzuca błąd jeśli port zamknięty
-  Future<Map<String, bool>> getModemStatus() async {
+  Map<String, bool> getModemStatus() {
     if (_serialPtr == null) return {};
     final int status = _bindings.serial_get_modem_status(_serialPtr!);
     return {
@@ -177,14 +185,17 @@ class FlSerial {
   void write(Uint8List data) {
     if (_serialPtr == null) return;
     final ptr = malloc.allocate<ffi.Uint8>(data.length);
-    ptr.asTypedList(data.length).setAll(0, data);
-    _bindings.serial_write(_serialPtr!, ptr.cast(), data.length);
-    malloc.free(ptr);
+    try {
+      ptr.asTypedList(data.length).setAll(0, data);
+      _bindings.serial_write(_serialPtr!, ptr.cast(), data.length);
+    } finally {
+      malloc.free(ptr);
+    }
   }
 
-  void close() async {
+  Future<void> close() async {
     if (_serialPtr != null) _bindings.serial_close(_serialPtr!);
-    await Future.delayed(Duration(milliseconds: 0));
+    await Future.delayed(Duration.zero);
     _stopSession();
   }
 
@@ -195,8 +206,8 @@ class FlSerial {
     _receivePort = null;
   }
 
-  void dispose() {
-    close();
+  Future<void> dispose() async {
+    await close();
     if (_serialPtr != null) {
       _bindings.serial_free(_serialPtr!);
       _serialPtr = null;

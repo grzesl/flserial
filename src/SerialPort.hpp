@@ -59,7 +59,10 @@ public:
         close(); // Upewnij się, że stary port jest zamknięty
 
 #ifdef PLATFORM_WINDOWS
-        hSerial = CreateFileA(portName.c_str(), GENERIC_READ | GENERIC_WRITE, 0, NULL, OPEN_EXISTING, 0, NULL);
+        std::string portPath = (portName.rfind("\\\\.\\", 0) == 0)
+            ? portName
+            : "\\\\.\\" + portName;
+        hSerial = CreateFileA(portPath.c_str(), GENERIC_READ | GENERIC_WRITE, 0, NULL, OPEN_EXISTING, 0, NULL);
         if (hSerial == INVALID_HANDLE_VALUE)
             return false;
 
@@ -105,24 +108,25 @@ public:
         struct termios tty;
         tcgetattr(fd, &tty);
 
-        speed_t speed = B115200; // Uproszczone mapowanie
-        if (baudRate == 9600)
-            speed = B9600;
-        else if (baudRate == 19200)
-            speed = B19200;
-        else if (baudRate == 38400)
-            speed = B38400;
+        cfmakeraw(&tty);
+        tty.c_cc[VMIN]  = 0;
+        tty.c_cc[VTIME] = 0;
 
+        speed_t speed = baud_to_speed(baudRate);
         cfsetospeed(&tty, speed);
         cfsetispeed(&tty, speed);
+
         tty.c_cflag = (tty.c_cflag & ~CSIZE) | (dataBits == 7 ? CS7 : CS8);
         tty.c_cflag |= (CLOCAL | CREAD);
+        tty.c_cflag &= ~PARENB;
         if (parity == 1)
             tty.c_cflag |= (PARENB | PARODD);
         else if (parity == 2)
             tty.c_cflag |= PARENB;
         if (stopBits == 2)
             tty.c_cflag |= CSTOPB;
+        else
+            tty.c_cflag &= ~CSTOPB;
         tcsetattr(fd, TCSANOW, &tty);
 #endif
 
@@ -168,18 +172,48 @@ public:
     void write(const uint8_t *data, int length)
     {
 #ifdef PLATFORM_WINDOWS
+        if (hSerial == INVALID_HANDLE_VALUE) return;
         DWORD written;
         WriteFile(hSerial, data, length, &written, NULL);
 #else
-        ::write(fd, data, length);
+        if (fd == -1) return;
+        int total = 0;
+        while (total < length) {
+            int n = ::write(fd, data + total, length - total);
+            if (n <= 0) break;
+            total += n;
+        }
 #endif
     }
+
+#ifndef PLATFORM_WINDOWS
+    static speed_t baud_to_speed(int baudRate)
+    {
+        switch (baudRate) {
+            case 9600:   return B9600;
+            case 19200:  return B19200;
+            case 38400:  return B38400;
+            case 57600:  return B57600;
+            case 115200: return B115200;
+            case 230400: return B230400;
+#ifdef B460800
+            case 460800: return B460800;
+#endif
+#ifdef B921600
+            case 921600: return B921600;
+#endif
+            default:     return B115200;
+        }
+    }
+#endif
 
     void set_dtr(bool active)
     {
 #ifdef PLATFORM_WINDOWS
+        if (hSerial == INVALID_HANDLE_VALUE) return;
         EscapeCommFunction(hSerial, active ? SETDTR : CLRDTR);
 #else
+        if (fd == -1) return;
         int flag = TIOCM_DTR;
         ioctl(fd, active ? TIOCMBIS : TIOCMBIC, &flag);
 #endif
@@ -188,8 +222,10 @@ public:
     void set_rts(bool active)
     {
 #ifdef PLATFORM_WINDOWS
+        if (hSerial == INVALID_HANDLE_VALUE) return;
         EscapeCommFunction(hSerial, active ? SETRTS : CLRRTS);
 #else
+        if (fd == -1) return;
         int flag = TIOCM_RTS;
         ioctl(fd, active ? TIOCMBIS : TIOCMBIC, &flag);
 #endif
@@ -237,8 +273,8 @@ public:
 private:
     std::atomic<bool> running;
     std::thread readThread;
-    Dart_Port send_port_id;
-    int last_modem_status;
+    std::atomic<Dart_Port> send_port_id;
+    std::atomic<int> last_modem_status;
     std::chrono::steady_clock::time_point last_status_check;
 
 #ifdef PLATFORM_WINDOWS
