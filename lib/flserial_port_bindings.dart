@@ -73,6 +73,7 @@ class FLSerialBindings {
   /// Otwiera port z zaawansowaną konfiguracją.
   /// parity: 0=none, 1=odd, 2=even
   /// stopBits: 1 lub 2
+  /// flowControl: 0=none, 1=RTS/CTS, 2=XON/XOFF
   bool serial_open_ext(
     ffi.Pointer<SerialPort> sp,
     ffi.Pointer<ffi.Char> path,
@@ -80,8 +81,9 @@ class FLSerialBindings {
     int dataBits,
     int stopBits,
     int parity,
+    int flowControl,
   ) {
-    return _serial_open_ext(sp, path, baud, dataBits, stopBits, parity);
+    return _serial_open_ext(sp, path, baud, dataBits, stopBits, parity, flowControl);
   }
 
   late final _serial_open_extPtr =
@@ -94,6 +96,7 @@ class FLSerialBindings {
             ffi.Int,
             ffi.Int,
             ffi.Int,
+            ffi.Int,
           )
         >
       >('serial_open_ext');
@@ -102,6 +105,7 @@ class FLSerialBindings {
         bool Function(
           ffi.Pointer<SerialPort>,
           ffi.Pointer<ffi.Char>,
+          int,
           int,
           int,
           int,

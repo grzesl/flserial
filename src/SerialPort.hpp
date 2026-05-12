@@ -3,9 +3,11 @@
 
 #include <string>
 #include <vector>
+#include <queue>
 #include <atomic>
 #include <thread>
 #include <mutex>
+#include <condition_variable>
 #include <chrono>
 #include <stdint.h>
 
@@ -54,9 +56,9 @@ public:
         send_port_id = port_id;
     }
 
-    bool open(const std::string &portName, int baudRate, int dataBits, int stopBits, int parity)
+    bool open(const std::string &portName, int baudRate, int dataBits, int stopBits, int parity, int flowControl = 0)
     {
-        close(); // Upewnij się, że stary port jest zamknięty
+        close();
 
 #ifdef PLATFORM_WINDOWS
         std::string portPath = (portName.rfind("\\\\.\\", 0) == 0)
@@ -76,25 +78,43 @@ public:
         dcb.fBinary = TRUE;
         dcb.fParity = (parity > 0);
 
-        dcb.fOutxCtsFlow = FALSE; // Wyłącz czekanie na sygnał CTS od urządzenia
-        dcb.fOutxDsrFlow = FALSE; // Wyłącz czekanie na sygnał DSR
-        dcb.fDtrControl = DTR_CONTROL_ENABLE;
-        dcb.fRtsControl = RTS_CONTROL_ENABLE;
-        dcb.fOutX = FALSE; // Wyłącz programowe sterowanie XON/XOFF
-        dcb.fInX = FALSE;
+        dcb.fOutxDsrFlow = FALSE;
+        if (flowControl == 1) {
+            // Hardware RTS/CTS
+            dcb.fOutxCtsFlow = TRUE;
+            dcb.fRtsControl  = RTS_CONTROL_HANDSHAKE;
+            dcb.fDtrControl  = DTR_CONTROL_ENABLE;
+            dcb.fOutX = FALSE;
+            dcb.fInX  = FALSE;
+        } else if (flowControl == 2) {
+            // Software XON/XOFF
+            dcb.fOutxCtsFlow = FALSE;
+            dcb.fRtsControl  = RTS_CONTROL_ENABLE;
+            dcb.fDtrControl  = DTR_CONTROL_ENABLE;
+            dcb.fOutX  = TRUE;
+            dcb.fInX   = TRUE;
+            dcb.XonChar  = 0x11;
+            dcb.XoffChar = 0x13;
+            dcb.XonLim   = 100;
+            dcb.XoffLim  = 100;
+        } else {
+            // No flow control
+            dcb.fOutxCtsFlow = FALSE;
+            dcb.fRtsControl  = RTS_CONTROL_ENABLE;
+            dcb.fDtrControl  = DTR_CONTROL_ENABLE;
+            dcb.fOutX = FALSE;
+            dcb.fInX  = FALSE;
+        }
 
         SetCommState(hSerial, &dcb);
 
         COMMTIMEOUTS timeouts = {0};
-        // ReadIntervalTimeout = MAXDWORD + pozostałe 0 wymusza natychmiastowy powrót
-        // z funkcji ReadFile, jeśli w buforze nie ma danych (non-blocking read).
         timeouts.ReadIntervalTimeout = MAXDWORD;
         timeouts.ReadTotalTimeoutConstant = 0;
         timeouts.ReadTotalTimeoutMultiplier = 0;
-
-        // Timeouty dla zapisu (WriteFile) - ustawiamy na 0, aby system
-        // nie blokował wątku czekając na potwierdzenie wysłania.
-        timeouts.WriteTotalTimeoutConstant = 0;
+        // 2-second write timeout — prevents WriteFile from blocking indefinitely
+        // (e.g. when com0com flow control stalls the port)
+        timeouts.WriteTotalTimeoutConstant = 2000;
         timeouts.WriteTotalTimeoutMultiplier = 0;
         SetCommTimeouts(hSerial, &timeouts);
 #else
@@ -127,14 +147,22 @@ public:
             tty.c_cflag |= CSTOPB;
         else
             tty.c_cflag &= ~CSTOPB;
+
+        // Flow control (cfmakeraw clears IXON/IXOFF/CRTSCTS by default)
+        if (flowControl == 1) {
+            tty.c_cflag |= CRTSCTS;
+        } else if (flowControl == 2) {
+            tty.c_iflag |= (IXON | IXOFF);
+        }
+
         tcsetattr(fd, TCSANOW, &tty);
 #endif
 
         running = true;
         last_modem_status = get_modem_status();
 
-        // Start wątku czytającego
         readThread = std::thread(&SerialPort::run, this);
+        writeThread = std::thread(&SerialPort::writeLoop, this);
 
         send_simple_event(EVENT_CONNECTED);
 
@@ -145,9 +173,11 @@ public:
     {
         if (running)
         {
-
             running = false;
+            writeCV.notify_all();
 
+            if (writeThread.joinable())
+                writeThread.join();
             if (readThread.joinable())
                 readThread.join();
 
@@ -169,21 +199,16 @@ public:
         }
     }
 
+    // Non-blocking: pushes data to write queue, returns immediately
     void write(const uint8_t *data, int length)
     {
-#ifdef PLATFORM_WINDOWS
-        if (hSerial == INVALID_HANDLE_VALUE) return;
-        DWORD written;
-        WriteFile(hSerial, data, length, &written, NULL);
-#else
-        if (fd == -1) return;
-        int total = 0;
-        while (total < length) {
-            int n = ::write(fd, data + total, length - total);
-            if (n <= 0) break;
-            total += n;
+        if (length <= 0) return;
+        std::vector<uint8_t> buf(data, data + length);
+        {
+            std::lock_guard<std::mutex> lock(writeMutex);
+            writeQueue.push(std::move(buf));
         }
-#endif
+        writeCV.notify_one();
     }
 
 #ifndef PLATFORM_WINDOWS
@@ -273,9 +298,14 @@ public:
 private:
     std::atomic<bool> running;
     std::thread readThread;
+    std::thread writeThread;
     std::atomic<Dart_Port> send_port_id;
     std::atomic<int> last_modem_status;
     std::chrono::steady_clock::time_point last_status_check;
+
+    std::queue<std::vector<uint8_t>> writeQueue;
+    std::mutex writeMutex;
+    std::condition_variable writeCV;
 
 #ifdef PLATFORM_WINDOWS
     HANDLE hSerial;
@@ -283,12 +313,51 @@ private:
     int fd;
 #endif
 
+    // Dedicated write thread — drains writeQueue without blocking Dart
+    void writeLoop()
+    {
+        while (running)
+        {
+            std::vector<uint8_t> buf;
+            {
+                std::unique_lock<std::mutex> lock(writeMutex);
+                writeCV.wait_for(lock, std::chrono::milliseconds(5),
+                    [this] { return !writeQueue.empty() || !running; });
+                if (!writeQueue.empty())
+                {
+                    buf = std::move(writeQueue.front());
+                    writeQueue.pop();
+                }
+            }
+            if (buf.empty()) continue;
+
+#ifdef PLATFORM_WINDOWS
+            if (hSerial == INVALID_HANDLE_VALUE) continue;
+            DWORD written;
+            WriteFile(hSerial, buf.data(), (DWORD)buf.size(), &written, NULL);
+#else
+            if (fd == -1) continue;
+            int total = 0;
+            while (total < (int)buf.size())
+            {
+                int n = ::write(fd, buf.data() + total, buf.size() - total);
+                if (n > 0) {
+                    total += n;
+                } else if (n < 0 && (errno == EAGAIN || errno == EWOULDBLOCK)) {
+                    std::this_thread::sleep_for(std::chrono::milliseconds(1));
+                } else {
+                    break;
+                }
+            }
+#endif
+        }
+    }
+
     void run()
     {
         uint8_t buffer[2048];
         while (running)
         {
-            // Monitorowanie linii modemowych
             int current_status = get_modem_status();
             if (current_status != last_modem_status)
             {
@@ -296,7 +365,6 @@ private:
                 last_modem_status = current_status;
             }
 
-            // Odczyt danych
             int bytesRead = 0;
 #ifdef PLATFORM_WINDOWS
             DWORD dwRead;
@@ -318,7 +386,6 @@ private:
         }
     }
 
-    // Wysyła surowe bajty (Uint8List w Darcie)
     void send_raw_data(uint8_t *buffer, int length)
     {
         if (send_port_id == 0)
@@ -331,7 +398,6 @@ private:
         Dart_PostCObject_DL(send_port_id, &message);
     }
 
-    // Wysyła prosty event typu [int]
     void send_simple_event(SerialEventType type)
     {
         if (send_port_id == 0)
@@ -348,7 +414,6 @@ private:
         Dart_PostCObject_DL(send_port_id, &msg);
     }
 
-    // Wysyła event z danymi typu [int, int]
     void send_complex_event(SerialEventType type, int data)
     {
         if (send_port_id == 0)

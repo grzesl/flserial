@@ -36,9 +36,9 @@ FFI_EXPORT void register_port(SerialPort* sp, Dart_Port port_id) {
     }
 }
 
-FFI_EXPORT bool serial_open_ext(SerialPort* sp, const char* path, int baud, int dataBits, int stopBits, int parity) {
+FFI_EXPORT bool serial_open_ext(SerialPort* sp, const char* path, int baud, int dataBits, int stopBits, int parity, int flowControl) {
     if (!sp) return false;
-    return sp->open(std::string(path), baud, dataBits, stopBits, parity);
+    return sp->open(std::string(path), baud, dataBits, stopBits, parity, flowControl);
 }
 
 FFI_EXPORT void serial_close(SerialPort* sp) {

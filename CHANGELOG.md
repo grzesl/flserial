@@ -1,3 +1,26 @@
+## 0.6.0
+
+### Android support
+* Added Android as a build target in `hook/build.dart` — native library now compiles via the Android NDK using the existing POSIX/termios code path
+* Fixed build hook to use `input.config.code.targetOS` instead of `Platform.is*` — correctly identifies the **target** platform rather than the host, enabling cross-compilation for Android
+* Added Android serial port scanner — probes known `/dev/` paths (`ttyUSB0–7`, `ttyACM0–7`, `ttyS0–3`, `ttyHS0–3`, `ttyMSM0–3`, `ttyGS0–3`) instead of directory listing, which SELinux blocks on Android
+
+### Flow control
+* Added `flowControl` parameter to `SerialConfig` (0 = none, 1 = RTS/CTS, 2 = XON/XOFF)
+* Implemented hardware RTS/CTS flow control on Windows (`DCB`: `fOutxCtsFlow`, `RTS_CONTROL_HANDSHAKE`) and POSIX (`CRTSCTS`)
+* Implemented software XON/XOFF flow control on Windows (`fOutX`/`fInX`, `XonChar`/`XoffChar`) and POSIX (`IXON`/`IXOFF`)
+* Extended `serial_open_ext()` C function signature with `flowControl` parameter — updated in `flserial.h`, `flserial.cpp`, `flserial_port_bindings.dart`, and `flserial.dart`
+
+### Native library (C++)
+* Refactored `write()` to be fully non-blocking — data is now queued and drained by a dedicated `writeThread` using a condition variable, preventing Dart from blocking on slow or flow-controlled ports
+* Added `writeLoop()` — drain loop handles `EAGAIN`/`EWOULDBLOCK` on POSIX gracefully with a 1 ms back-off
+* Set Windows write timeout to 2 seconds (`WriteTotalTimeoutConstant = 2000`) to prevent `WriteFile` from blocking indefinitely when flow control stalls the port
+* Added `std::queue`, `std::mutex`, `std::condition_variable` for the write queue
+
+### Build hook
+* Added early return when `buildCodeAssets` is false — avoids running the compiler for non-code asset invocations
+* Added iOS as an alias for macOS build configuration
+
 ## 0.5.3
 
 ### Dart layer

@@ -19,6 +19,8 @@ class SerialScanner {
       return _scanLinux();
     } else if (Platform.isMacOS) {
       return _scanMacOS();
+    } else if (Platform.isAndroid) {
+      return _scanAndroid();
     }
     return [];
   }
@@ -89,5 +91,39 @@ class SerialScanner {
       }
     }
     return ports;
+  }
+
+  /// Android: sonduje znane ścieżki — listowanie /dev/ blokuje SELinux.
+  static Future<List<SerialPortInfo>> _scanAndroid() async {
+    final List<SerialPortInfo> ports = [];
+
+    // Prefixes and their max index to probe
+    final probes = {
+      'ttyUSB': 8,   // USB-serial converters (CH340, CP210x, FTDI)
+      'ttyACM': 8,   // CDC ACM (Arduino, STM32)
+      'ttyS':   4,   // hardware UARTs
+      'ttyHS':  4,   // Qualcomm high-speed UART
+      'ttyMSM': 4,   // Qualcomm MSM UART
+      'ttyGS':  4,   // USB gadget serial
+    };
+
+    for (final entry in probes.entries) {
+      for (int i = 0; i < entry.value; i++) {
+        final path = '/dev/${entry.key}$i';
+        if (await File(path).exists()) {
+          ports.add(SerialPortInfo(path, _androidPortDescription(entry.key)));
+        }
+      }
+    }
+    return ports;
+  }
+
+  static String _androidPortDescription(String name) {
+    if (name.startsWith('ttyUSB')) return 'USB Serial Device';
+    if (name.startsWith('ttyACM')) return 'USB CDC ACM Device';
+    if (name.startsWith('ttyGS')) return 'USB Gadget Serial';
+    if (name.startsWith('ttyHS')) return 'High-Speed UART';
+    if (name.startsWith('ttyMSM')) return 'Qualcomm UART';
+    return 'Android Serial Device';
   }
 }

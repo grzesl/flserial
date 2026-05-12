@@ -47,8 +47,9 @@ FFI_EXPORT void register_port(SerialPort* sp, int64_t port_id);
  * Otwiera port z zaawansowaną konfiguracją.
  * parity: 0=none, 1=odd, 2=even
  * stopBits: 1 lub 2
+ * flowControl: 0=none, 1=RTS/CTS, 2=XON/XOFF
  */
-FFI_EXPORT bool serial_open_ext(SerialPort* sp, const char* path, int baud, int dataBits, int stopBits, int parity);
+FFI_EXPORT bool serial_open_ext(SerialPort* sp, const char* path, int baud, int dataBits, int stopBits, int parity, int flowControl);
 
 /**
  * Zamyka fizyczne połączenie z portem.
