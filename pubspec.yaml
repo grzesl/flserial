@@ -12,7 +12,7 @@ flutter:
 
 environment:
   sdk: ^3.11.3
-  flutter: ">=1.10.0"
+  flutter: ">=3.22.0"
 
 dependencies:
   flutter:
