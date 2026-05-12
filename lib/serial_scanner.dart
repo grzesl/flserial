@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'package:flutter/services.dart';
 
 class SerialPortInfo {
   final String path;
@@ -11,7 +12,9 @@ class SerialPortInfo {
 }
 
 class SerialScanner {
-  /// Zwraca listę dostępnych portów szeregowych
+  static final _usbChannel = MethodChannel('io.github.grzesl.flserial/usb');
+
+  /// Returns list of available serial ports
   static Future<List<SerialPortInfo>> getAvailablePorts() async {
     if (Platform.isWindows) {
       return _scanWindows();
@@ -25,11 +28,10 @@ class SerialScanner {
     return [];
   }
 
-  /// Windows: Odczyt z rejestru HARDWARE\DEVICEMAP\SERIALCOMM
+  /// Windows: reads from registry HARDWARE\DEVICEMAP\SERIALCOMM
   static Future<List<SerialPortInfo>> _scanWindows() async {
     final List<SerialPortInfo> ports = [];
     try {
-      // Wykorzystujemy komendę reg query do odczytu portów COM
       final result = await Process.run('reg', [
         'query',
         r'HKEY_LOCAL_MACHINE\HARDWARE\DEVICEMAP\SERIALCOMM',
@@ -40,18 +42,18 @@ class SerialScanner {
         for (var line in lines) {
           if (line.contains('REG_SZ')) {
             final parts = line.split(RegExp(r'\s+'));
-            final portName = parts.last; // np. COM3
-            ports.add(SerialPortInfo(portName, "Urządzenie szeregowe Windows"));
+            final portName = parts.last;
+            ports.add(SerialPortInfo(portName, "Windows Serial Device"));
           }
         }
       }
     } catch (e) {
-      print("Błąd skanowania Windows: $e");
+      print("Windows scan error: $e");
     }
     return ports;
   }
 
-  /// Linux: Przeszukiwanie /sys/class/tty
+  /// Linux: scans /sys/class/tty
   static Future<List<SerialPortInfo>> _scanLinux() async {
     final List<SerialPortInfo> ports = [];
     final dir = Directory('/sys/class/tty');
@@ -59,7 +61,6 @@ class SerialScanner {
     if (await dir.exists()) {
       await for (final entity in dir.list()) {
         final name = entity.path.split('/').last;
-        // Szukamy ttyUSB, ttyACM (Arduino/STM32) lub ttyS (fizyczne porty)
         if (name.startsWith('ttyUSB') ||
             name.startsWith('ttyACM') ||
             name.startsWith('ttyS')) {
@@ -73,7 +74,7 @@ class SerialScanner {
     return ports;
   }
 
-  /// macOS: Przeszukiwanie /dev/cu.*
+  /// macOS: scans /dev/cu.*
   static Future<List<SerialPortInfo>> _scanMacOS() async {
     final List<SerialPortInfo> ports = [];
     final dir = Directory('/dev');
@@ -81,9 +82,7 @@ class SerialScanner {
     if (await dir.exists()) {
       await for (final entity in dir.list()) {
         final name = entity.path.split('/').last;
-        // Na macu używamy portów "cu" (call-out), bo nie czekają na sygnał DCD
         if (name.startsWith('cu.')) {
-          // Filtrujemy tylko rzeczywiste urządzenia USB/Bluetooth
           if (!name.contains('Bluetooth') && !name.contains('AirPods')) {
             ports.add(SerialPortInfo(entity.path, "macOS Serial Device"));
           }
@@ -93,37 +92,33 @@ class SerialScanner {
     return ports;
   }
 
-  /// Android: sonduje znane ścieżki — listowanie /dev/ blokuje SELinux.
+  /// Android: queries USB serial devices via platform channel (USB Host API).
+  /// Returns paths prefixed with "usb:" so the caller can route them correctly.
   static Future<List<SerialPortInfo>> _scanAndroid() async {
     final List<SerialPortInfo> ports = [];
-
-    // Prefixes and their max index to probe
-    final probes = {
-      'ttyUSB': 8,   // USB-serial converters (CH340, CP210x, FTDI)
-      'ttyACM': 8,   // CDC ACM (Arduino, STM32)
-      'ttyS':   4,   // hardware UARTs
-      'ttyHS':  4,   // Qualcomm high-speed UART
-      'ttyMSM': 4,   // Qualcomm MSM UART
-      'ttyGS':  4,   // USB gadget serial
-    };
-
-    for (final entry in probes.entries) {
-      for (int i = 0; i < entry.value; i++) {
-        final path = '/dev/${entry.key}$i';
-        if (await File(path).exists()) {
-          ports.add(SerialPortInfo(path, _androidPortDescription(entry.key)));
+    try {
+      final List<dynamic>? result =
+          await _usbChannel.invokeListMethod<dynamic>('listUsbSerialDevices');
+      if (result != null) {
+        for (final item in result) {
+          if (item is Map) {
+            final name = item['name'] as String? ?? '';
+            final product = item['product'] as String? ?? '';
+            final manufacturer = item['manufacturer'] as String? ?? '';
+            final desc = [manufacturer, product]
+                .where((s) => s.isNotEmpty)
+                .join(' ')
+                .trim();
+            if (name.isNotEmpty) {
+              ports.add(SerialPortInfo(
+                'usb:$name',
+                desc.isNotEmpty ? desc : 'USB Serial Device',
+              ));
+            }
+          }
         }
       }
-    }
+    } catch (_) {}
     return ports;
-  }
-
-  static String _androidPortDescription(String name) {
-    if (name.startsWith('ttyUSB')) return 'USB Serial Device';
-    if (name.startsWith('ttyACM')) return 'USB CDC ACM Device';
-    if (name.startsWith('ttyGS')) return 'USB Gadget Serial';
-    if (name.startsWith('ttyHS')) return 'High-Speed UART';
-    if (name.startsWith('ttyMSM')) return 'Qualcomm UART';
-    return 'Android Serial Device';
   }
 }

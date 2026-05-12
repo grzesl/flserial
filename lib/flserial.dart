@@ -3,9 +3,9 @@ import 'dart:ffi' as ffi;
 import 'dart:ffi';
 import 'dart:io';
 import 'dart:isolate';
-import 'dart:typed_data';
 import 'package:ffi/ffi.dart';
 import 'package:flserial/flserial_port_bindings.dart';
+import 'package:flutter/services.dart';
 import 'package:flserial/serial_scanner.dart';
 
 /// Typy zdarzeń przesyłanych z C++ do Darta
@@ -47,11 +47,18 @@ class SerialConfig {
 }
 
 class FlSerial {
+  static final _usbMethodChannel = MethodChannel('io.github.grzesl.flserial/usb');
+  static final _usbEventChannel = EventChannel('io.github.grzesl.flserial/usb_data');
+
   late FLSerialBindings _bindings;
   ffi.Pointer<SerialPort>? _serialPtr;
 
   ReceivePort? _receivePort;
   StreamSubscription? _subscription;
+
+  bool _isUsbMode = false;
+  String? _usbDeviceName;
+  StreamSubscription? _usbDataSubscription;
 
   // Kontroler zdarzeń (Strumień główny)
   final _eventController = StreamController<SerialEvent>.broadcast();
@@ -96,9 +103,14 @@ class FlSerial {
     _serialPtr = _bindings.serial_new();
   }
 
-  /// Otwiera port z pełną konfiguracją
-  bool open(String path, SerialConfig config) {
+  /// Opens the port with full configuration.
+  /// On Android, paths prefixed with "usb:" are routed through the USB Host API.
+  Future<bool> open(String path, SerialConfig config) async {
     _stopSession();
+
+    if (Platform.isAndroid && path.startsWith('usb:')) {
+      return _openUsb(path.substring(4), config);
+    }
 
     _receivePort = ReceivePort();
     _subscription = _receivePort!.listen(_handleNativeMessage);
@@ -107,7 +119,6 @@ class FlSerial {
     try {
       _bindings.register_port(_serialPtr!, _receivePort!.sendPort.nativePort);
 
-      // Zakł\adamy rozszerzoną funkcję w C++: serial_open_ext
       final success = _bindings.serial_open_ext(
         _serialPtr!,
         pathPtr.cast(),
@@ -126,6 +137,34 @@ class FlSerial {
       return true;
     } finally {
       malloc.free(pathPtr);
+    }
+  }
+
+  Future<bool> _openUsb(String deviceName, SerialConfig config) async {
+    try {
+      final ok = await _usbMethodChannel.invokeMethod<bool>('openUsbDevice', {
+        'name': deviceName,
+        'baud': config.baudRate,
+      });
+      if (ok != true) return false;
+
+      _isUsbMode = true;
+      _usbDeviceName = deviceName;
+
+      _usbDataSubscription =
+          _usbEventChannel.receiveBroadcastStream().listen((dynamic event) {
+        if (event is Map) {
+          final bytes = event['data'];
+          if (bytes is Uint8List) {
+            _eventController.add(SerialEvent(SerialEventType.data, bytes));
+          }
+        }
+      });
+
+      _eventController.add(SerialEvent(SerialEventType.connected, null));
+      return true;
+    } catch (_) {
+      return false;
     }
   }
 
@@ -186,6 +225,13 @@ class FlSerial {
   // --- FUNKCJE POMOCNICZE ---
 
   void write(Uint8List data) {
+    if (_isUsbMode && _usbDeviceName != null) {
+      _usbMethodChannel.invokeMethod<void>('writeUsbDevice', {
+        'name': _usbDeviceName,
+        'data': data,
+      });
+      return;
+    }
     if (_serialPtr == null) return;
     final ptr = malloc.allocate<ffi.Uint8>(data.length);
     try {
@@ -197,12 +243,25 @@ class FlSerial {
   }
 
   Future<void> close() async {
+    if (_isUsbMode) {
+      final name = _usbDeviceName;
+      _stopSession();
+      if (name != null) {
+        await _usbMethodChannel.invokeMethod('closeUsbDevice', {'name': name});
+      }
+      _eventController.add(SerialEvent(SerialEventType.disconnected, null));
+      return;
+    }
     if (_serialPtr != null) _bindings.serial_close(_serialPtr!);
     await Future.delayed(Duration.zero);
     _stopSession();
   }
 
   void _stopSession() {
+    _usbDataSubscription?.cancel();
+    _usbDataSubscription = null;
+    _isUsbMode = false;
+    _usbDeviceName = null;
     _subscription?.cancel();
     _subscription = null;
     _receivePort?.close();

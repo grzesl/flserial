@@ -17,8 +17,8 @@ void main(List<String> args) async {
       includeDirs.addAll(['src', 'src/windows']);
       srcFiles.addAll(['src/flserial.cpp', 'src/windows/dart_api_dl.c']);
     } else if (targetOS == OS.android) {
-      // Android NDK zarządza stdlib automatycznie — nie dodawaj -lc++/-lstdc++
-      customFlags.addAll(['-std=c++17', '-O2', '-fvisibility=default']);
+      // Statically embed C++ runtime — libc++_shared.so is not bundled by Flutter
+      customFlags.addAll(['-std=c++17', '-O2', '-fvisibility=default', '-lc++_static', '-lc++abi']);
       includeDirs.addAll(['src', 'src/linux']);
       srcFiles.addAll(['src/flserial.cpp', 'src/linux/dart_api_dl.cpp']);
     } else if (targetOS == OS.linux) {

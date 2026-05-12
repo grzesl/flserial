@@ -32,9 +32,14 @@ class _SerialProTerminalState extends State<SerialProTerminal> {
   List<String> _availablePorts = [];
   String? _selectedPort;
   bool _isConnected = false;
-  int _baudRate = 115200;
 
-  // Lista logów: {message, isIncoming}
+  // SerialConfig parameters
+  int _baudRate = 115200;
+  int _dataBits = 8;
+  int _stopBits = 1;
+  int _parity = 0;
+  int _flowControl = 0;
+
   final List<Map<String, dynamic>> _logs = [];
   Map<String, bool> _modemStatus = {
     'CTS': false,
@@ -50,37 +55,29 @@ class _SerialProTerminalState extends State<SerialProTerminal> {
 
     _serial.events.listen((event) {
       if (!mounted) return;
-      setState(() {
-        switch (event.type) {
-          case SerialEventType.data:
-            _addLog(String.fromCharCodes(event.data as Uint8List), true);
-            break;
-          case SerialEventType.lineStatusChanged:
+      switch (event.type) {
+        case SerialEventType.data:
+          _addLog(String.fromCharCodes(event.data as Uint8List), true);
+        case SerialEventType.lineStatusChanged:
+          setState(() {
             _modemStatus = Map<String, bool>.from(event.data);
-            break;
-          case SerialEventType.connected:
-            _isConnected = true;
-            _addLog(">>> PORT OTWARTY <<<", false);
-            break;
-          case SerialEventType.disconnected:
-            _isConnected = false;
-            _addLog(">>> PORT ZAMKNIĘTY <<<", false);
-            break;
-          case SerialEventType.error:
-            _addLog("BŁĄD: ${event.data}", false);
-            break;
-        }
-      });
+          });
+        case SerialEventType.connected:
+          setState(() => _isConnected = true);
+          _addLog(">>> PORT OPEN <<<", false);
+        case SerialEventType.disconnected:
+          setState(() => _isConnected = false);
+          _addLog(">>> PORT CLOSED <<<", false);
+        case SerialEventType.error:
+          _addLog("ERROR: ${event.data}", false);
+      }
     });
   }
 
   void _refreshPorts() async {
     final ports = await FlSerial.availablePorts();
     setState(() {
-      _availablePorts = ports.map((e) {
-        return e.path.toString();
-      }).toList();
-
+      _availablePorts = ports.map((e) => e.path.toString()).toList();
       if (_availablePorts.isNotEmpty) {
         if (_selectedPort == null || !_availablePorts.contains(_selectedPort)) {
           _selectedPort = _availablePorts.first;
@@ -91,26 +88,30 @@ class _SerialProTerminalState extends State<SerialProTerminal> {
     });
   }
 
-  void _toggleConnection() {
+  Future<void> _toggleConnection() async {
     if (_isConnected) {
       _serial.close();
     } else {
       if (_selectedPort == null) return;
-      final config = SerialConfig(baudRate: _baudRate);
-      if (!_serial.open(_selectedPort!, config)) {
-        _addLog("Nie udało się otworzyć $_selectedPort", false);
+      final config = SerialConfig(
+        baudRate: _baudRate,
+        dataBits: _dataBits,
+        stopBits: _stopBits,
+        parity: _parity,
+        flowControl: _flowControl,
+      );
+      final ok = await _serial.open(_selectedPort!, config);
+      if (!ok) {
+        _addLog("Failed to open $_selectedPort", false);
       }
     }
   }
 
   void _sendData() {
     final text = _sendController.text;
-    if (text.isEmpty) return;
-
-    // Wysyłamy tekst z końcem linii \r\n (standard terminala)
+    if (text.isEmpty || !_isConnected) return;
     final data = Uint8List.fromList("$text\r\n".codeUnits);
     _serial.write(data);
-
     _addLog(text, false);
     _sendController.clear();
   }
@@ -136,9 +137,9 @@ class _SerialProTerminalState extends State<SerialProTerminal> {
           IconButton(onPressed: _refreshPorts, icon: const Icon(Icons.sync)),
         ],
       ),
-      body: Column(
+      body: SafeArea(child: Column(
         children: [
-          // GÓRNY PANEL: WYBÓR PORTU
+          // PORT SELECTION
           Card(
             margin: const EdgeInsets.all(8),
             child: Padding(
@@ -150,10 +151,9 @@ class _SerialProTerminalState extends State<SerialProTerminal> {
                       value: _selectedPort,
                       isExpanded: true,
                       underline: const SizedBox(),
+                      hint: const Text("No ports found"),
                       items: _availablePorts
-                          .map(
-                            (p) => DropdownMenuItem(value: p, child: Text(p)),
-                          )
+                          .map((p) => DropdownMenuItem(value: p, child: Text(p)))
                           .toList(),
                       onChanged: _isConnected
                           ? null
@@ -162,16 +162,15 @@ class _SerialProTerminalState extends State<SerialProTerminal> {
                   ),
                   const SizedBox(width: 10),
                   ElevatedButton.icon(
-                    onPressed: (_selectedPort != null)
-                        ? _toggleConnection
-                        : null,
+                    onPressed: _selectedPort != null ? _toggleConnection : null,
                     icon: Icon(_isConnected ? Icons.stop : Icons.play_arrow),
                     label: Text(_isConnected ? "STOP" : "START"),
                     style: ElevatedButton.styleFrom(
                       backgroundColor: _isConnected
                           ? Colors.red.shade50
                           : Colors.green.shade50,
-                      foregroundColor: _isConnected ? Colors.red : Colors.green,
+                      foregroundColor:
+                          _isConnected ? Colors.red : Colors.green,
                     ),
                   ),
                 ],
@@ -179,7 +178,57 @@ class _SerialProTerminalState extends State<SerialProTerminal> {
             ),
           ),
 
-          // STATUS LINII (DIODY)
+          // CONFIGURATION
+          Card(
+            margin: const EdgeInsets.fromLTRB(8, 0, 8, 8),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+              child: Row(
+                children: [
+                  _cfgDropdown<int>(
+                    label: "Baud",
+                    value: _baudRate,
+                    items: const [
+                      9600, 19200, 38400, 57600, 115200, 230400, 460800, 921600,
+                    ],
+                    onChanged: (v) => setState(() => _baudRate = v!),
+                  ),
+                  const SizedBox(width: 8),
+                  _cfgDropdown<int>(
+                    label: "Data",
+                    value: _dataBits,
+                    items: const [7, 8],
+                    onChanged: (v) => setState(() => _dataBits = v!),
+                  ),
+                  const SizedBox(width: 8),
+                  _cfgDropdown<int>(
+                    label: "Stop",
+                    value: _stopBits,
+                    items: const [1, 2],
+                    onChanged: (v) => setState(() => _stopBits = v!),
+                  ),
+                  const SizedBox(width: 8),
+                  _cfgDropdown<int>(
+                    label: "Parity",
+                    value: _parity,
+                    items: const [0, 1, 2],
+                    labels: const ["N", "O", "E"],
+                    onChanged: (v) => setState(() => _parity = v!),
+                  ),
+                  const SizedBox(width: 8),
+                  _cfgDropdown<int>(
+                    label: "Flow",
+                    value: _flowControl,
+                    items: const [0, 1, 2],
+                    labels: const ["None", "RTS/CTS", "XON/XOFF"],
+                    onChanged: (v) => setState(() => _flowControl = v!),
+                  ),
+                ],
+              ),
+            ),
+          ),
+
+          // MODEM STATUS
           Padding(
             padding: const EdgeInsets.symmetric(vertical: 4),
             child: Row(
@@ -202,7 +251,7 @@ class _SerialProTerminalState extends State<SerialProTerminal> {
             ),
           ),
 
-          // TERMINAL (LOGI)
+          // TERMINAL LOG
           Expanded(
             child: Container(
               margin: const EdgeInsets.all(8),
@@ -221,10 +270,10 @@ class _SerialProTerminalState extends State<SerialProTerminal> {
                     "${log['in'] ? '←' : '→'} ${log['msg']}",
                     style: TextStyle(
                       fontFamily: 'monospace',
-                      color: log['in'] ? Colors.blue.shade900 : Colors.black87,
-                      fontWeight: log['in']
-                          ? FontWeight.bold
-                          : FontWeight.normal,
+                      color:
+                          log['in'] ? Colors.blue.shade900 : Colors.black87,
+                      fontWeight:
+                          log['in'] ? FontWeight.bold : FontWeight.normal,
                     ),
                   );
                 },
@@ -232,7 +281,7 @@ class _SerialProTerminalState extends State<SerialProTerminal> {
             ),
           ),
 
-          // DOLNY PANEL: WYSYŁANIE DANYCH
+          // SEND
           Padding(
             padding: const EdgeInsets.fromLTRB(8, 0, 8, 16),
             child: Row(
@@ -241,7 +290,7 @@ class _SerialProTerminalState extends State<SerialProTerminal> {
                   child: TextField(
                     controller: _sendController,
                     decoration: const InputDecoration(
-                      hintText: "Wpisz komendę...",
+                      hintText: "Enter command...",
                       border: OutlineInputBorder(),
                       isDense: true,
                     ),
@@ -257,6 +306,41 @@ class _SerialProTerminalState extends State<SerialProTerminal> {
             ),
           ),
         ],
+      )),
+    );
+  }
+
+  Widget _cfgDropdown<T>({
+    required String label,
+    required T value,
+    required List<T> items,
+    List<String>? labels,
+    required ValueChanged<T?> onChanged,
+  }) {
+    return Expanded(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(label,
+              style: const TextStyle(fontSize: 10, color: Colors.grey)),
+          DropdownButton<T>(
+            value: value,
+            isExpanded: true,
+            isDense: true,
+            underline: const SizedBox(),
+            items: items.asMap().entries
+                .map((e) => DropdownMenuItem<T>(
+                      value: e.value,
+                      child: Text(
+                        labels != null ? labels[e.key] : e.value.toString(),
+                        style: const TextStyle(fontSize: 13),
+                      ),
+                    ))
+                .toList(),
+            onChanged: _isConnected ? null : onChanged,
+          ),
+        ],
       ),
     );
   }
@@ -265,6 +349,7 @@ class _SerialProTerminalState extends State<SerialProTerminal> {
   void dispose() {
     _serial.dispose();
     _sendController.dispose();
+    _scrollController.dispose();
     super.dispose();
   }
 }
