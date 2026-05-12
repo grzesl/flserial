@@ -74,18 +74,18 @@ class FlSerial {
   }
 
   void _initNative() {
-    final _libName = 'flserial';
+    const libName = 'flserial';
 
     final DynamicLibrary dylib = () {
       try {
         if (Platform.isMacOS || Platform.isIOS) {
-          return DynamicLibrary.open('$_libName.framework/$_libName');
+          return DynamicLibrary.open('$libName.framework/$libName');
         }
         if (Platform.isAndroid || Platform.isLinux) {
-          return DynamicLibrary.open('lib$_libName.so');
+          return DynamicLibrary.open('lib$libName.so');
         }
         if (Platform.isWindows) {
-          return DynamicLibrary.open('$_libName.dll');
+          return DynamicLibrary.open('$libName.dll');
         }
         throw UnsupportedError('Unknown platform: ${Platform.operatingSystem}');
       } catch (e) {

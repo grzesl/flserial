@@ -47,9 +47,7 @@ class SerialScanner {
           }
         }
       }
-    } catch (e) {
-      print("Windows scan error: $e");
-    }
+    } catch (_) {}
     return ports;
   }
 
