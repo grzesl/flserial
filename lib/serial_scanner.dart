@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/services.dart';
 
 class SerialPortInfo {
@@ -16,6 +17,7 @@ class SerialScanner {
 
   /// Returns list of available serial ports
   static Future<List<SerialPortInfo>> getAvailablePorts() async {
+    if (kIsWeb) return _scanWeb();
     if (Platform.isWindows) {
       return _scanWindows();
     } else if (Platform.isLinux) {
@@ -118,5 +120,11 @@ class SerialScanner {
       }
     } catch (_) {}
     return ports;
+  }
+
+  /// Web: returns a single synthetic entry; opening it triggers the browser's
+  /// native port-picker dialog (navigator.serial.requestPort).
+  static Future<List<SerialPortInfo>> _scanWeb() async {
+    return [SerialPortInfo('web:request', 'Web Serial Port')];
   }
 }

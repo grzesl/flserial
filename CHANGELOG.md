@@ -1,3 +1,12 @@
+## 0.7.0
+
+### Web support
+* Added Web Serial API support via `dart:js_interop` — works in Chrome and Edge
+* `FlSerial` is now split into a native implementation (`dart:ffi`) and a web implementation (JS interop), selected at compile time via conditional export
+* `SerialScanner.getAvailablePorts()` on web returns a single `"Web Serial Port"` entry; opening it triggers the browser's native port-picker dialog (`navigator.serial.requestPort()`)
+* `open()`, `write()`, `close()` transparently route through the Web Serial API on web
+* `setDTR`, `setRTS`, `getModemStatus` are no-ops on web (Web Serial API does not expose modem control lines)
+
 ## 0.6.0
 
 ### Android support
