@@ -11,9 +11,41 @@ import 'serial_types.dart';
 
 export 'serial_types.dart';
 
+/// Asynchronous serial port driver for Flutter.
+///
+/// Supports Windows, Linux, macOS (via Dart FFI + native C++) and Android
+/// (via USB Host API platform channel).
+///
+/// ## Basic usage
+///
+/// ```dart
+/// final serial = FlSerial();
+///
+/// serial.events.listen((event) {
+///   if (event.type == SerialEventType.data) {
+///     print(String.fromCharCodes(event.data as Uint8List));
+///   }
+/// });
+///
+/// final ports = await FlSerial.availablePorts();
+/// await serial.open(ports.first.path, SerialConfig(baudRate: 115200));
+/// serial.write(Uint8List.fromList('hello\n'.codeUnits));
+/// await serial.close();
+/// await serial.dispose();
+/// ```
+///
+/// ## Android
+///
+/// Paths starting with `usb:` are routed through the USB Host platform
+/// channel. The OS permission dialog is shown automatically on first connect.
+///
+/// Requires `<uses-feature android:name="android.hardware.usb.host" />` in
+/// the host app's `AndroidManifest.xml`.
 class FlSerial {
-  static final _usbMethodChannel = MethodChannel('io.github.grzesl.flserial/usb');
-  static final _usbEventChannel = EventChannel('io.github.grzesl.flserial/usb_data');
+  static final _usbMethodChannel =
+      MethodChannel('io.github.grzesl.flserial/usb');
+  static final _usbEventChannel =
+      EventChannel('io.github.grzesl.flserial/usb_data');
 
   late FLSerialBindings _bindings;
   ffi.Pointer<SerialPort>? _serialPtr;
@@ -25,13 +57,26 @@ class FlSerial {
   String? _usbDeviceName;
   StreamSubscription? _usbDataSubscription;
 
+  /// Broadcast stream of all port events.
+  ///
+  /// Subscribe before calling [open] to avoid missing the initial
+  /// [SerialEventType.connected] event.
   final _eventController = StreamController<SerialEvent>.broadcast();
+
+  /// Broadcast stream of all port events (connect, disconnect, data, line
+  /// status changes, errors).
   Stream<SerialEvent> get events => _eventController.stream;
 
+  /// Convenience stream that emits only raw received bytes.
+  ///
+  /// Equivalent to filtering [events] for [SerialEventType.data].
   Stream<Uint8List> get dataStream => events
       .where((e) => e.type == SerialEventType.data)
       .map((e) => e.data as Uint8List);
 
+  /// Creates a new [FlSerial] instance and loads the native library.
+  ///
+  /// Throws [UnsupportedError] if the native library cannot be loaded.
   FlSerial() {
     _initNative();
   }
@@ -65,7 +110,16 @@ class FlSerial {
     _serialPtr = _bindings.serial_new();
   }
 
-  /// Opens a port. On Android, "usb:" paths use the USB Host platform channel.
+  /// Opens [path] with the given [config].
+  ///
+  /// Returns `true` on success, `false` if the port could not be opened
+  /// (device busy, wrong path, permission denied, etc.).
+  ///
+  /// On Android, `usb:`-prefixed paths trigger the USB permission dialog; the
+  /// method resolves only after the user responds.
+  ///
+  /// Calling [open] while a port is already open implicitly closes the
+  /// previous session first.
   Future<bool> open(String path, SerialConfig config) async {
     _stopSession();
 
@@ -145,24 +199,36 @@ class FlSerial {
           'DCD': (mask & 0x08) != 0,
         }));
       } else {
-        _eventController.add(
-            SerialEvent(type, msg.length > 1 ? msg[1] : null));
+        _eventController
+            .add(SerialEvent(type, msg.length > 1 ? msg[1] : null));
       }
     }
   }
 
+  /// Sets the DTR (Data Terminal Ready) control line.
+  ///
+  /// Has no effect if the port is not open.
   void setDTR(bool active) {
     if (_serialPtr != null) {
       _bindings.serial_set_dtr(_serialPtr!, active ? 1 : 0);
     }
   }
 
+  /// Sets the RTS (Request To Send) control line.
+  ///
+  /// Has no effect if the port is not open or if hardware flow control is
+  /// enabled (the driver controls RTS automatically in that case).
   void setRTS(bool active) {
     if (_serialPtr != null) {
       _bindings.serial_set_rts(_serialPtr!, active ? 1 : 0);
     }
   }
 
+  /// Returns the current state of the input modem control lines.
+  ///
+  /// Returns an empty map if the port is not open.
+  ///
+  /// Keys: `'CTS'`, `'DSR'`, `'RI'`, `'DCD'`.
   Map<String, bool> getModemStatus() {
     if (_serialPtr == null) return {};
     final int status = _bindings.serial_get_modem_status(_serialPtr!);
@@ -174,6 +240,10 @@ class FlSerial {
     };
   }
 
+  /// Sends [data] to the open port.
+  ///
+  /// The call returns immediately; the data is written asynchronously by the
+  /// native worker thread. Has no effect if the port is not open.
   void write(Uint8List data) {
     if (_isUsbMode && _usbDeviceName != null) {
       _usbMethodChannel.invokeMethod<void>('writeUsbDevice', {
@@ -192,6 +262,9 @@ class FlSerial {
     }
   }
 
+  /// Closes the currently open port and emits [SerialEventType.disconnected].
+  ///
+  /// Safe to call even if no port is open.
   Future<void> close() async {
     if (_isUsbMode) {
       final name = _usbDeviceName;
@@ -218,6 +291,9 @@ class FlSerial {
     _receivePort = null;
   }
 
+  /// Closes the port and releases all native resources.
+  ///
+  /// The instance must not be used after calling [dispose].
   Future<void> dispose() async {
     await close();
     if (_serialPtr != null) {
@@ -227,6 +303,9 @@ class FlSerial {
     _eventController.close();
   }
 
+  /// Returns all serial ports currently visible on this device.
+  ///
+  /// Delegates to [SerialScanner.getAvailablePorts].
   static Future<List<SerialPortInfo>> availablePorts() async {
     return SerialScanner.getAvailablePorts();
   }

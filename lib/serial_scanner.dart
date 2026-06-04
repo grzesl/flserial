@@ -2,20 +2,51 @@ import 'dart:io';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/services.dart';
 
+/// Information about a single serial port discovered on the host system.
 class SerialPortInfo {
+  /// Platform-specific port identifier passed to [FlSerial.open].
+  ///
+  /// | Platform | Example |
+  /// |----------|---------|
+  /// | Windows | `COM3` |
+  /// | Linux | `/dev/ttyUSB0` |
+  /// | macOS | `/dev/cu.usbserial-1410` |
+  /// | Android | `usb:/dev/bus/usb/001/002` |
+  /// | Web | `web:request` |
   final String path;
+
+  /// Human-readable label (device name, manufacturer, or generic category).
   final String description;
 
+  /// Creates a [SerialPortInfo] with the given [path] and [description].
   SerialPortInfo(this.path, this.description);
 
   @override
-  String toString() => "$path ($description)";
+  String toString() => '$path ($description)';
 }
 
+/// Scans the host system for available serial ports.
+///
+/// Prefer [FlSerial.availablePorts], which delegates here.
+///
+/// ```dart
+/// final ports = await SerialScanner.getAvailablePorts();
+/// for (final p in ports) print(p);
+/// ```
 class SerialScanner {
   static final _usbChannel = MethodChannel('io.github.grzesl.flserial/usb');
 
-  /// Returns list of available serial ports
+  /// Returns all serial ports currently available on this device.
+  ///
+  /// The implementation is platform-specific:
+  ///
+  /// * **Windows** — reads `HKLM\HARDWARE\DEVICEMAP\SERIALCOMM` from the registry.
+  /// * **Linux** — scans `/sys/class/tty` for `ttyUSB*`, `ttyACM*`, `ttyS*` entries.
+  /// * **macOS** — scans `/dev/cu.*` (call-out devices only).
+  /// * **Android** — queries connected USB serial devices via the USB Host API
+  ///   platform channel; returns `usb:`-prefixed paths.
+  /// * **Web** — returns a single synthetic `"Web Serial Port"` entry; opening
+  ///   it shows the browser's native port-picker dialog.
   static Future<List<SerialPortInfo>> getAvailablePorts() async {
     if (kIsWeb) return _scanWeb();
     if (Platform.isWindows) {
@@ -30,7 +61,6 @@ class SerialScanner {
     return [];
   }
 
-  /// Windows: reads from registry HARDWARE\DEVICEMAP\SERIALCOMM
   static Future<List<SerialPortInfo>> _scanWindows() async {
     final List<SerialPortInfo> ports = [];
     try {
@@ -45,7 +75,7 @@ class SerialScanner {
           if (line.contains('REG_SZ')) {
             final parts = line.split(RegExp(r'\s+'));
             final portName = parts.last;
-            ports.add(SerialPortInfo(portName, "Windows Serial Device"));
+            ports.add(SerialPortInfo(portName, 'Windows Serial Device'));
           }
         }
       }
@@ -53,7 +83,6 @@ class SerialScanner {
     return ports;
   }
 
-  /// Linux: scans /sys/class/tty
   static Future<List<SerialPortInfo>> _scanLinux() async {
     final List<SerialPortInfo> ports = [];
     final dir = Directory('/sys/class/tty');
@@ -66,7 +95,7 @@ class SerialScanner {
             name.startsWith('ttyS')) {
           final devicePath = '/dev/$name';
           if (await File(devicePath).exists()) {
-            ports.add(SerialPortInfo(devicePath, "Linux TTY Device"));
+            ports.add(SerialPortInfo(devicePath, 'Linux TTY Device'));
           }
         }
       }
@@ -74,7 +103,6 @@ class SerialScanner {
     return ports;
   }
 
-  /// macOS: scans /dev/cu.*
   static Future<List<SerialPortInfo>> _scanMacOS() async {
     final List<SerialPortInfo> ports = [];
     final dir = Directory('/dev');
@@ -84,7 +112,7 @@ class SerialScanner {
         final name = entity.path.split('/').last;
         if (name.startsWith('cu.')) {
           if (!name.contains('Bluetooth') && !name.contains('AirPods')) {
-            ports.add(SerialPortInfo(entity.path, "macOS Serial Device"));
+            ports.add(SerialPortInfo(entity.path, 'macOS Serial Device'));
           }
         }
       }
@@ -92,8 +120,6 @@ class SerialScanner {
     return ports;
   }
 
-  /// Android: queries USB serial devices via platform channel (USB Host API).
-  /// Returns paths prefixed with "usb:" so the caller can route them correctly.
   static Future<List<SerialPortInfo>> _scanAndroid() async {
     final List<SerialPortInfo> ports = [];
     try {
@@ -122,8 +148,6 @@ class SerialScanner {
     return ports;
   }
 
-  /// Web: returns a single synthetic entry; opening it triggers the browser's
-  /// native port-picker dialog (navigator.serial.requestPort).
   static Future<List<SerialPortInfo>> _scanWeb() async {
     return [SerialPortInfo('web:request', 'Web Serial Port')];
   }
