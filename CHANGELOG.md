@@ -1,3 +1,10 @@
+## 0.7.1
+
+### Maintenance
+* Declared all supported platforms in `pubspec.yaml` (`linux`, `macos`, `windows` with `ffiPlugin: true`; `web` with `pluginClass: none`)
+* Removed unused `native_assets_cli` (discontinued) and `logging` dependencies
+* Updated `code_assets`, `hooks`, and `native_toolchain_c` to latest versions
+
 ## 0.7.0
 
 ### Web support
