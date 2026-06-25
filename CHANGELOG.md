@@ -1,3 +1,8 @@
+## 0.7.2
+
+### Fix
+* Removed `ffiPlugin: true` declarations for `linux`, `macos`, and `windows` from `pubspec.yaml`. The desktop native libraries are built through the native-assets build hook (`hook/build.dart`), so these platform entries made consuming apps add the package to `FLUTTER_FFI_PLUGIN_LIST` and fail with `add_subdirectory ... flserial/windows which is not an existing directory` (no CMake platform folders exist). Android and web declarations are unchanged.
+
 ## 0.7.1
 
 ### Maintenance
