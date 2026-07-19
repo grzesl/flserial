@@ -75,6 +75,42 @@ typedef WebPortDesc = ({String path, String description});
 
 final _portCache = <String, SerialPort>{};
 
+int _nextRequestedPortId = 0;
+
+/// Requests permission for a port via the browser's native device-picker
+/// dialog, **without opening it**.
+///
+/// Requires a user gesture (e.g. a button tap). The returned path is cached
+/// in [_portCache], so a later [openWebPort] call for it resolves
+/// immediately without prompting again — unlike opening the `web:request`
+/// sentinel path, which always fuses the prompt and the open into one step.
+///
+/// Returns `null` if the user cancels the picker or permission is denied.
+Future<WebPortDesc?> requestWebPort() async {
+  final s = _serial;
+  if (s == null) return null;
+
+  final SerialPort port;
+  try {
+    port = await s.requestPort().toDart;
+  } catch (_) {
+    // The picker rejects its promise (rather than resolving null) when the
+    // user cancels or denies permission.
+    return null;
+  }
+
+  final path = 'web:requested:${_nextRequestedPortId++}';
+  _portCache[path] = port;
+  final info = port.getInfo();
+  final vid = info.usbVendorId;
+  final pid = info.usbProductId;
+  final desc = (vid != null && pid != null)
+      ? 'VID:${vid.toRadixString(16).padLeft(4, '0').toUpperCase()} '
+        'PID:${pid.toRadixString(16).padLeft(4, '0').toUpperCase()}'
+      : 'Web Serial Device';
+  return (path: path, description: desc);
+}
+
 Future<List<WebPortDesc>> listWebPorts() async {
   final s = _serial;
   if (s == null) return [];

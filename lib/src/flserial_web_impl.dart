@@ -36,6 +36,13 @@ export 'serial_types.dart';
 /// `web:request`. Passing it to [open] triggers `navigator.serial.requestPort()`
 /// which shows the browser's native device-picker dialog. This requires a
 /// user gesture — a button tap qualifies.
+///
+/// To ask for permission ahead of time and open the port later (e.g. to
+/// keep a "Connect" button and a "Read" action separate, without prompting
+/// again for every reconnect), call [requestPort] instead — it shows the
+/// same picker but doesn't open the port, returning a [SerialPortInfo]
+/// whose [SerialPortInfo.path] you can pass to [open] whenever you're
+/// ready, with no picker shown again.
 class FlSerial {
   final _eventController = StreamController<SerialEvent>.broadcast();
 
@@ -133,4 +140,23 @@ class FlSerial {
   /// `web:request`. Passing that path to [open] shows the browser picker.
   static Future<List<SerialPortInfo>> availablePorts() =>
       SerialScanner.getAvailablePorts();
+
+  /// Requests permission for a port via the browser's native device-picker
+  /// dialog, **without opening it**.
+  ///
+  /// Requires a user gesture (e.g. a button tap). Pass the returned
+  /// [SerialPortInfo.path] to [open] later — since permission was already
+  /// granted here, that won't show the picker again.
+  ///
+  /// Returns `null` if the user cancels the picker or denies permission.
+  ///
+  /// No-op on native (always returns `null`) — kept for API parity so
+  /// shared code doesn't need to branch on `kIsWeb`; native ports never
+  /// require prior permission, so just call [availablePorts] and [open]
+  /// directly there.
+  static Future<SerialPortInfo?> requestPort() async {
+    final desc = await requestWebPort();
+    if (desc == null) return null;
+    return SerialPortInfo(desc.path, desc.description);
+  }
 }

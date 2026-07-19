@@ -5,6 +5,8 @@ bool get webSerialAvailable => false;
 
 typedef WebPortDesc = ({String path, String description});
 
+Future<WebPortDesc?> requestWebPort() async => null;
+
 Future<List<WebPortDesc>> listWebPorts() async => [];
 
 Future<bool> openWebPort(
