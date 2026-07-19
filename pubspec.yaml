@@ -9,18 +9,6 @@ flutter:
       android:
         package: io.github.grzesl.flserial
         pluginClass: FlserialPlugin
-      # No web entry here on purpose: Flutter's web-plugin codegen only
-      # skips `pluginClass: none` when it's paired with a `dartPluginClass`
-      # (its federated-plugin registration mechanism). Without one,
-      # `_writeWebPluginRegistrant` (flutter_tools/lib/src/flutter_plugins.dart)
-      # includes the plugin unconditionally and emits
-      # `none.registerWith(registrar)`, treating the literal string "none" as
-      # an import prefix -- breaking `flutter build web` with
-      # "'Registrar' isn't a type" / "Undefined name 'none'" in any app that
-      # depends on this package. The web implementation
-      # (lib/src/flserial_web_impl.dart) is pure dart:js_interop and never
-      # needed plugin registration in the first place, so dropping the `web:`
-      # platform entry entirely is a correct, no-op-equivalent fix.
 
 environment:
   sdk: ^3.11.3
