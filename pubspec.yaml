@@ -9,9 +9,6 @@ flutter:
       android:
         package: io.github.grzesl.flserial
         pluginClass: FlserialPlugin
-      web:
-        pluginClass: none
-        fileName: flserial.dart
 
 environment:
   sdk: ^3.11.3
