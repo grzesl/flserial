@@ -309,4 +309,10 @@ class FlSerial {
   static Future<List<SerialPortInfo>> availablePorts() async {
     return SerialScanner.getAvailablePorts();
   }
+
+  /// No-op on native (always returns `null`) — kept for API parity with the
+  /// web implementation, where it requests Web Serial permission via the
+  /// browser's picker without opening the port. Native ports never require
+  /// prior permission, so just call [availablePorts] and [open] directly.
+  static Future<SerialPortInfo?> requestPort() async => null;
 }
