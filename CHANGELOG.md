@@ -1,3 +1,11 @@
+## 0.7.3
+
+### Fix
+* Removed the malformed `web: pluginClass: none` platform entry from `pubspec.yaml` — it made Flutter's web-plugin codegen emit `none.registerWith(registrar)`, breaking `flutter build web` for every consuming app since 0.7.1 (#13, #14, thanks @Levyks)
+
+### Feature
+* Added static `FlSerial.requestPort()` — on web, shows the browser's device-picker dialog to request port permission **without opening the port**; the returned `SerialPortInfo.path` can be passed to `open()` later with no picker shown again. No-op (returns `null`) on native platforms (#12, thanks @Levyks)
+
 ## 0.7.2
 
 ### Fix
