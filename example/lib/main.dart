@@ -30,6 +30,7 @@ class _SerialProTerminalState extends State<SerialProTerminal> {
   final TextEditingController _sendController = TextEditingController();
 
   List<String> _availablePorts = [];
+  Map<String, SerialPortInfo> _portInfo = {};
   String? _selectedPort;
   bool _isConnected = false;
 
@@ -78,6 +79,7 @@ class _SerialProTerminalState extends State<SerialProTerminal> {
     final ports = await FlSerial.availablePorts();
     setState(() {
       _availablePorts = ports.map((e) => e.path.toString()).toList();
+      _portInfo = {for (final p in ports) p.path: p};
       if (_availablePorts.isNotEmpty) {
         if (_selectedPort == null || !_availablePorts.contains(_selectedPort)) {
           _selectedPort = _availablePorts.first;
@@ -100,11 +102,30 @@ class _SerialProTerminalState extends State<SerialProTerminal> {
         parity: _parity,
         flowControl: _flowControl,
       );
-      final ok = await _serial.open(_selectedPort!, config);
+      // USB devices are opened by VID/PID (+ serial number) rather than by
+      // path, so the same device is found again even if its path changes.
+      final info = _portInfo[_selectedPort];
+      final ok = info != null && info.hasUsbIds
+          ? await _serial.openByVidPid(
+              info.vendorId!,
+              info.productId!,
+              config,
+              serialNumber: info.serialNumber,
+            )
+          : await _serial.open(_selectedPort!, config);
       if (!ok) {
         _addLog("Failed to open $_selectedPort", false);
       }
     }
+  }
+
+  String _portLabel(String path) {
+    final info = _portInfo[path];
+    if (info == null) return path;
+    final usbId = info.usbId;
+    return usbId != null
+        ? '$path — ${info.description} [$usbId]'
+        : '$path — ${info.description}';
   }
 
   void _sendData() {
@@ -153,7 +174,10 @@ class _SerialProTerminalState extends State<SerialProTerminal> {
                       underline: const SizedBox(),
                       hint: const Text("No ports found"),
                       items: _availablePorts
-                          .map((p) => DropdownMenuItem(value: p, child: Text(p)))
+                          .map((p) => DropdownMenuItem(
+                                value: p,
+                                child: Text(_portLabel(p)),
+                              ))
                           .toList(),
                       onChanged: _isConnected
                           ? null

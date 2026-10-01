@@ -1,3 +1,14 @@
+## 0.8.0
+
+### USB VID / PID
+* `SerialPortInfo` now carries `vendorId`, `productId` and `serialNumber` (plus the `usbId`, `hasUsbIds` and `matches()` helpers); they are `null` for non-USB ports
+* Added `FlSerial.openByVidPid(vendorId, productId, config, {serialNumber})` — opens a device by its USB IDs at runtime, without knowing the port name
+* Added `SerialScanner.findByVidPid()`
+* Windows: IDs are read through SetupAPI (`dart:ffi`); the port description is now the device's friendly name instead of `Windows Serial Device`
+* Linux: IDs are read from sysfs; macOS: from `ioreg`; Android: from the USB Host API
+* Web: `availablePorts()` now also lists the ports the user has already granted access to (after the `web:request` entry), with their VID/PID; `openByVidPid()` falls back to the browser picker filtered to the given VID/PID
+* `SerialPortInfo` is now exported from `package:flserial/flserial.dart`
+
 ## 0.7.3
 
 ### Fix

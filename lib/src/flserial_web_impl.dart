@@ -32,7 +32,7 @@ export 'serial_types.dart';
 ///
 /// ## Port picker
 ///
-/// [availablePorts] always returns a single synthetic entry with path
+/// [availablePorts] always starts with a synthetic entry with path
 /// `web:request`. Passing it to [open] triggers `navigator.serial.requestPort()`
 /// which shows the browser's native device-picker dialog. This requires a
 /// user gesture — a button tap qualifies.
@@ -84,12 +84,50 @@ class FlSerial {
     );
     if (!ok) return false;
 
+    _startSession(path);
+    return true;
+  }
+
+  /// Opens the port of the USB device with the given [vendorId] and
+  /// [productId], e.g. `openByVidPid(0x0403, 0x6001, …)`.
+  ///
+  /// If the user has already granted access to a matching device it is opened
+  /// directly; otherwise the browser picker is shown, filtered to matching
+  /// devices (this requires a user gesture).
+  ///
+  /// [serialNumber] is ignored — the Web Serial API does not expose it.
+  ///
+  /// Returns `true` on success, `false` if the user cancels or the port
+  /// cannot be opened.
+  Future<bool> openByVidPid(
+    int vendorId,
+    int productId,
+    SerialConfig config, {
+    String? serialNumber,
+  }) async {
+    _stopSession();
+
+    final path = await openWebPortByVidPid(
+      vendorId,
+      productId,
+      baudRate: config.baudRate,
+      dataBits: config.dataBits,
+      stopBits: config.stopBits,
+      parity: config.parity,
+      flowControl: config.flowControl,
+    );
+    if (path == null) return false;
+
+    _startSession(path);
+    return true;
+  }
+
+  void _startSession(String path) {
     _webPath = path;
     _webDataSub = webDataStream(path)?.listen((bytes) {
       _eventController.add(SerialEvent(SerialEventType.data, bytes));
     });
     _eventController.add(SerialEvent(SerialEventType.connected, null));
-    return true;
   }
 
   /// Sends [data] to the open port (fire-and-forget).
@@ -136,8 +174,10 @@ class FlSerial {
 
   /// Returns all serial ports currently visible on this device.
   ///
-  /// On web, always returns a single `"Web Serial Port"` entry whose path is
-  /// `web:request`. Passing that path to [open] shows the browser picker.
+  /// On web, the first entry is always `"Web Serial Port"` with the path
+  /// `web:request`; passing that path to [open] shows the browser picker.
+  /// It is followed by the ports the user has already granted access to,
+  /// with [SerialPortInfo.vendorId] and [SerialPortInfo.productId] filled in.
   static Future<List<SerialPortInfo>> availablePorts() =>
       SerialScanner.getAvailablePorts();
 
@@ -157,6 +197,11 @@ class FlSerial {
   static Future<SerialPortInfo?> requestPort() async {
     final desc = await requestWebPort();
     if (desc == null) return null;
-    return SerialPortInfo(desc.path, desc.description);
+    return SerialPortInfo(
+      desc.path,
+      desc.description,
+      vendorId: desc.vendorId,
+      productId: desc.productId,
+    );
   }
 }

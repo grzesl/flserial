@@ -181,6 +181,8 @@ class FlserialPlugin : FlutterPlugin, MethodChannel.MethodCallHandler, ActivityA
                     "pid"          to d.productId,
                     "manufacturer" to (d.manufacturerName ?: ""),
                     "product"      to (d.productName      ?: "USB Serial"),
+                    // Throws SecurityException without USB permission on API 29+
+                    "serial"       to (runCatching { d.serialNumber }.getOrNull() ?: ""),
                 )
             }
 

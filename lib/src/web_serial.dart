@@ -10,7 +10,17 @@ external Serial? get _serial;
 @JS()
 extension type Serial._(JSObject _) implements JSObject {
   external JSPromise<JSArray<SerialPort>> getPorts();
-  external JSPromise<SerialPort> requestPort();
+  external JSPromise<SerialPort> requestPort([SerialPortRequestOptions options]);
+}
+
+@JS()
+extension type SerialPortRequestOptions._(JSObject _) implements JSObject {
+  external factory SerialPortRequestOptions({JSArray<SerialPortFilter> filters});
+}
+
+@JS()
+extension type SerialPortFilter._(JSObject _) implements JSObject {
+  external factory SerialPortFilter({int usbVendorId, int usbProductId});
 }
 
 @JS()
@@ -71,7 +81,12 @@ extension type WritableStreamDefaultWriter._(JSObject _) implements JSObject {
 
 bool get webSerialAvailable => _serial != null;
 
-typedef WebPortDesc = ({String path, String description});
+typedef WebPortDesc = ({
+  String path,
+  String description,
+  int? vendorId,
+  int? productId,
+});
 
 final _portCache = <String, SerialPort>{};
 
@@ -108,7 +123,7 @@ Future<WebPortDesc?> requestWebPort() async {
       ? 'VID:${vid.toRadixString(16).padLeft(4, '0').toUpperCase()} '
         'PID:${pid.toRadixString(16).padLeft(4, '0').toUpperCase()}'
       : 'Web Serial Device';
-  return (path: path, description: desc);
+  return (path: path, description: desc, vendorId: vid, productId: pid);
 }
 
 Future<List<WebPortDesc>> listWebPorts() async {
@@ -126,7 +141,7 @@ Future<List<WebPortDesc>> listWebPorts() async {
         ? 'VID:${vid.toRadixString(16).padLeft(4, '0').toUpperCase()} '
           'PID:${pid.toRadixString(16).padLeft(4, '0').toUpperCase()}'
         : 'Web Serial Device';
-    result.add((path: path, description: desc));
+    result.add((path: path, description: desc, vendorId: vid, productId: pid));
   }
   return result;
 }
@@ -167,6 +182,77 @@ Future<bool> openWebPort(
     port = cached;
   }
 
+  return _openPort(path, port,
+      baudRate: baudRate,
+      dataBits: dataBits,
+      stopBits: stopBits,
+      parity: parity,
+      flowControl: flowControl);
+}
+
+/// Opens the port of the USB device with the given VID/PID.
+///
+/// A port the user has already granted access to is opened directly;
+/// otherwise the browser picker is shown, filtered to matching devices.
+/// Returns the path key of the opened connection, or `null` on failure.
+Future<String?> openWebPortByVidPid(
+  int vendorId,
+  int productId, {
+  required int baudRate,
+  int dataBits = 8,
+  int stopBits = 1,
+  int parity = 0,
+  int flowControl = 0,
+}) async {
+  final s = _serial;
+  if (s == null) return null;
+
+  SerialPort? port;
+  try {
+    for (final p in (await s.getPorts().toDart).toDart) {
+      final info = p.getInfo();
+      if (info.usbVendorId == vendorId &&
+          info.usbProductId == productId &&
+          !_conns.values.any((c) => c.port == p)) {
+        port = p;
+        break;
+      }
+    }
+    port ??= await s
+        .requestPort(SerialPortRequestOptions(
+          filters: [
+            SerialPortFilter(usbVendorId: vendorId, usbProductId: productId),
+          ].toJS,
+        ))
+        .toDart;
+  } catch (_) {
+    return null; // picker dismissed or no user gesture
+  }
+
+  String path;
+  for (int i = 0;; i++) {
+    path = 'web:usb:$vendorId:$productId:$i';
+    if (!_conns.containsKey(path)) break;
+  }
+  _portCache[path] = port;
+  final ok = await _openPort(path, port,
+      baudRate: baudRate,
+      dataBits: dataBits,
+      stopBits: stopBits,
+      parity: parity,
+      flowControl: flowControl);
+  return ok ? path : null;
+}
+
+Future<bool> _openPort(
+  String path,
+  SerialPort port, {
+  required int baudRate,
+  required int dataBits,
+  required int stopBits,
+  required int parity,
+  required int flowControl,
+}) async {
   final parityStr = const ['none', 'odd', 'even'][parity.clamp(0, 2)];
   // Web Serial only supports 'hardware' or 'none' flow control
   final flowStr = flowControl == 1 ? 'hardware' : 'none';

@@ -3,7 +3,12 @@ import 'dart:typed_data';
 
 bool get webSerialAvailable => false;
 
-typedef WebPortDesc = ({String path, String description});
+typedef WebPortDesc = ({
+  String path,
+  String description,
+  int? vendorId,
+  int? productId,
+});
 
 Future<WebPortDesc?> requestWebPort() async => null;
 
@@ -18,6 +23,17 @@ Future<bool> openWebPort(
   int flowControl = 0,
 }) async =>
     false;
+
+Future<String?> openWebPortByVidPid(
+  int vendorId,
+  int productId, {
+  required int baudRate,
+  int dataBits = 8,
+  int stopBits = 1,
+  int parity = 0,
+  int flowControl = 0,
+}) async =>
+    null;
 
 Stream<Uint8List>? webDataStream(String path) => null;
 

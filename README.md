@@ -18,6 +18,7 @@ A high-performance, asynchronous serial port plugin for **Flutter**, using **Dar
 - **Reactive streams** — incoming data and events (connect / disconnect / line status) via `Stream<SerialEvent>`
 - **Modem line tracking** — real-time CTS, DSR, RI, DCD status (desktop/macOS/Linux)
 - **Flow control** — hardware RTS/CTS and software XON/XOFF
+- **USB VID / PID** — list the VID/PID of connected devices and open a device by VID/PID at runtime
 - **Android USB Host** — no root required; permission dialog handled automatically
 - **Web Serial** — browser port picker dialog on first connect; works in Chrome and Edge
 - **Native Assets** — compiled via `hook/build.dart`, no manual `.so`/`.dll` copy needed
@@ -74,6 +75,33 @@ await serial.dispose();
 
 ---
 
+## USB VID / PID
+
+Ports that belong to a USB device report their vendor ID, product ID and (where the platform exposes it) serial number:
+
+```dart
+final ports = await FlSerial.availablePorts();
+for (final p in ports) {
+  print('${p.path}  ${p.usbId ?? '-'}  ${p.serialNumber ?? ''}');
+  // COM3  0403:6001  A50285BI
+}
+```
+
+`vendorId` / `productId` are `null` for non-USB ports (built-in UARTs, virtual ports).
+
+To connect to a specific device without knowing its port name, open it by VID/PID:
+
+```dart
+final ok = await serial.openByVidPid(0x0403, 0x6001, SerialConfig(baudRate: 115200));
+
+// Several identical adapters? Pick one by serial number:
+await serial.openByVidPid(0x0403, 0x6001, config, serialNumber: 'A50285BI');
+```
+
+`SerialScanner.findByVidPid(vid, pid)` returns all matching ports if you want to choose yourself.
+
+---
+
 ## SerialConfig
 
 | Parameter | Type | Default | Description |
@@ -102,7 +130,9 @@ Supported USB-serial chips: CDC ACM, FTDI FT232, Silicon Labs CP210x, CH340/CH34
 
 ### Web
 
-Scanning always returns a single **"Web Serial Port"** entry. Calling `open()` on it triggers the browser's native port-picker dialog — no permission is needed beforehand. The dialog requires a user gesture (button tap), which the `open()` call from a button handler satisfies.
+Scanning always returns a **"Web Serial Port"** entry first. Calling `open()` on it triggers the browser's native port-picker dialog — no permission is needed beforehand. The dialog requires a user gesture (button tap), which the `open()` call from a button handler satisfies.
+
+Ports the user has already granted access to are listed after it, with their VID/PID. The browser does not reveal devices that have not been granted yet, so `openByVidPid()` opens a granted device directly and otherwise shows the picker filtered to that VID/PID.
 
 > **Browser support**: Chrome 89+, Edge 89+. Not supported in Firefox or Safari.
 

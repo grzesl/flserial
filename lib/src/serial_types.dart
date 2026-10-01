@@ -58,6 +58,63 @@ class SerialEvent {
   SerialEvent(this.type, this.data);
 }
 
+/// Information about a single serial port discovered on the host system.
+class SerialPortInfo {
+  /// Platform-specific port identifier passed to [FlSerial.open].
+  ///
+  /// | Platform | Example |
+  /// |----------|---------|
+  /// | Windows | `COM3` |
+  /// | Linux | `/dev/ttyUSB0` |
+  /// | macOS | `/dev/cu.usbserial-1410` |
+  /// | Android | `usb:/dev/bus/usb/001/002` |
+  /// | Web | `web:request` |
+  final String path;
+
+  /// Human-readable label (device name, manufacturer, or generic category).
+  final String description;
+
+  /// USB vendor ID (VID) of the device behind this port, or `null` if the
+  /// port is not a USB device (e.g. a built-in UART) or the ID is unknown.
+  final int? vendorId;
+
+  /// USB product ID (PID) of the device behind this port, or `null` if the
+  /// port is not a USB device or the ID is unknown.
+  final int? productId;
+
+  /// USB serial number string of the device, or `null` if the device does not
+  /// report one or the platform does not expose it (always `null` on Web).
+  final String? serialNumber;
+
+  /// Creates a [SerialPortInfo] with the given [path] and [description].
+  SerialPortInfo(
+    this.path,
+    this.description, {
+    this.vendorId,
+    this.productId,
+    this.serialNumber,
+  });
+
+  /// Whether both [vendorId] and [productId] are known.
+  bool get hasUsbIds => vendorId != null && productId != null;
+
+  /// `VID:PID` as two 4-digit uppercase hex numbers (e.g. `0403:6001`), or
+  /// `null` if the IDs are unknown.
+  String? get usbId => hasUsbIds ? '${_hex4(vendorId!)}:${_hex4(productId!)}' : null;
+
+  /// Returns `true` if this port belongs to a USB device with the given
+  /// [vendorId] and [productId] (and [serialNumber], when provided).
+  bool matches(int vendorId, int productId, {String? serialNumber}) =>
+      this.vendorId == vendorId &&
+      this.productId == productId &&
+      (serialNumber == null || this.serialNumber == serialNumber);
+
+  static String _hex4(int v) => v.toRadixString(16).padLeft(4, '0').toUpperCase();
+
+  @override
+  String toString() => '$path ($description)';
+}
+
 /// Port configuration passed to [FlSerial.open].
 ///
 /// All parameters are optional and default to the most common RS-232 settings

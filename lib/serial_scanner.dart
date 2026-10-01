@@ -1,29 +1,14 @@
 import 'dart:io';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/services.dart';
+import 'src/port_details.dart';
+import 'src/serial_types.dart';
+import 'src/web_serial_stub.dart'
+    if (dart.library.js_interop) 'src/web_serial.dart' as web;
+import 'src/windows_ports_stub.dart'
+    if (dart.library.io) 'src/windows_ports.dart';
 
-/// Information about a single serial port discovered on the host system.
-class SerialPortInfo {
-  /// Platform-specific port identifier passed to [FlSerial.open].
-  ///
-  /// | Platform | Example |
-  /// |----------|---------|
-  /// | Windows | `COM3` |
-  /// | Linux | `/dev/ttyUSB0` |
-  /// | macOS | `/dev/cu.usbserial-1410` |
-  /// | Android | `usb:/dev/bus/usb/001/002` |
-  /// | Web | `web:request` |
-  final String path;
-
-  /// Human-readable label (device name, manufacturer, or generic category).
-  final String description;
-
-  /// Creates a [SerialPortInfo] with the given [path] and [description].
-  SerialPortInfo(this.path, this.description);
-
-  @override
-  String toString() => '$path ($description)';
-}
+export 'src/serial_types.dart' show SerialPortInfo;
 
 /// Scans the host system for available serial ports.
 ///
@@ -45,8 +30,12 @@ class SerialScanner {
   /// * **macOS** — scans `/dev/cu.*` (call-out devices only).
   /// * **Android** — queries connected USB serial devices via the USB Host API
   ///   platform channel; returns `usb:`-prefixed paths.
-  /// * **Web** — returns a single synthetic `"Web Serial Port"` entry; opening
-  ///   it shows the browser's native port-picker dialog.
+  /// * **Web** — returns a synthetic `"Web Serial Port"` entry (opening it
+  ///   shows the browser's native port-picker dialog), followed by the ports
+  ///   the user has already granted access to.
+  ///
+  /// USB devices are reported with [SerialPortInfo.vendorId] and
+  /// [SerialPortInfo.productId] filled in.
   static Future<List<SerialPortInfo>> getAvailablePorts() async {
     if (kIsWeb) return _scanWeb();
     if (Platform.isWindows) {
@@ -61,6 +50,19 @@ class SerialScanner {
     return [];
   }
 
+  /// Returns the available ports that belong to a USB device with the given
+  /// [vendorId] and [productId] (and [serialNumber], when provided).
+  static Future<List<SerialPortInfo>> findByVidPid(
+    int vendorId,
+    int productId, {
+    String? serialNumber,
+  }) async {
+    final ports = await getAvailablePorts();
+    return ports
+        .where((p) => p.matches(vendorId, productId, serialNumber: serialNumber))
+        .toList();
+  }
+
   static Future<List<SerialPortInfo>> _scanWindows() async {
     final List<SerialPortInfo> ports = [];
     try {
@@ -70,12 +72,24 @@ class SerialScanner {
       ]);
 
       if (result.exitCode == 0) {
+        var details = const <String, PortDetails>{};
+        try {
+          details = windowsPortDetails();
+        } catch (_) {}
+
         final lines = result.stdout.toString().split('\r\n');
         for (var line in lines) {
           if (line.contains('REG_SZ')) {
             final parts = line.split(RegExp(r'\s+'));
             final portName = parts.last;
-            ports.add(SerialPortInfo(portName, 'Windows Serial Device'));
+            final d = details[portName.toUpperCase()];
+            ports.add(SerialPortInfo(
+              portName,
+              d?.description ?? 'Windows Serial Device',
+              vendorId: d?.vendorId,
+              productId: d?.productId,
+              serialNumber: d?.serialNumber,
+            ));
           }
         }
       }
@@ -95,7 +109,14 @@ class SerialScanner {
             name.startsWith('ttyS')) {
           final devicePath = '/dev/$name';
           if (await File(devicePath).exists()) {
-            ports.add(SerialPortInfo(devicePath, 'Linux TTY Device'));
+            final d = await linuxPortDetails(name);
+            ports.add(SerialPortInfo(
+              devicePath,
+              d?.description ?? 'Linux TTY Device',
+              vendorId: d?.vendorId,
+              productId: d?.productId,
+              serialNumber: d?.serialNumber,
+            ));
           }
         }
       }
@@ -108,11 +129,19 @@ class SerialScanner {
     final dir = Directory('/dev');
 
     if (await dir.exists()) {
+      final details = await macosPortDetails();
       await for (final entity in dir.list()) {
         final name = entity.path.split('/').last;
         if (name.startsWith('cu.')) {
           if (!name.contains('Bluetooth') && !name.contains('AirPods')) {
-            ports.add(SerialPortInfo(entity.path, 'macOS Serial Device'));
+            final d = details[entity.path];
+            ports.add(SerialPortInfo(
+              entity.path,
+              d?.description ?? 'macOS Serial Device',
+              vendorId: d?.vendorId,
+              productId: d?.productId,
+              serialNumber: d?.serialNumber,
+            ));
           }
         }
       }
@@ -131,6 +160,7 @@ class SerialScanner {
             final name = item['name'] as String? ?? '';
             final product = item['product'] as String? ?? '';
             final manufacturer = item['manufacturer'] as String? ?? '';
+            final serial = item['serial'] as String? ?? '';
             final desc = [manufacturer, product]
                 .where((s) => s.isNotEmpty)
                 .join(' ')
@@ -139,6 +169,9 @@ class SerialScanner {
               ports.add(SerialPortInfo(
                 'usb:$name',
                 desc.isNotEmpty ? desc : 'USB Serial Device',
+                vendorId: item['vid'] as int?,
+                productId: item['pid'] as int?,
+                serialNumber: serial.isNotEmpty ? serial : null,
               ));
             }
           }
@@ -149,6 +182,17 @@ class SerialScanner {
   }
 
   static Future<List<SerialPortInfo>> _scanWeb() async {
-    return [SerialPortInfo('web:request', 'Web Serial Port')];
+    final ports = [SerialPortInfo('web:request', 'Web Serial Port')];
+    try {
+      for (final p in await web.listWebPorts()) {
+        ports.add(SerialPortInfo(
+          p.path,
+          p.description,
+          vendorId: p.vendorId,
+          productId: p.productId,
+        ));
+      }
+    } catch (_) {}
+    return ports;
   }
 }

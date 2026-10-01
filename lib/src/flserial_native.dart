@@ -155,6 +155,28 @@ class FlSerial {
     }
   }
 
+  /// Opens the first available port that belongs to the USB device with the
+  /// given [vendorId] and [productId], e.g. `openByVidPid(0x0403, 0x6001, …)`.
+  ///
+  /// Pass [serialNumber] to pick one of several identical devices.
+  ///
+  /// Returns `false` if no matching device is connected or the port could not
+  /// be opened. Use [availablePorts] to see which VID/PID pairs are present.
+  Future<bool> openByVidPid(
+    int vendorId,
+    int productId,
+    SerialConfig config, {
+    String? serialNumber,
+  }) async {
+    final ports = await SerialScanner.findByVidPid(
+      vendorId,
+      productId,
+      serialNumber: serialNumber,
+    );
+    if (ports.isEmpty) return false;
+    return open(ports.first.path, config);
+  }
+
   Future<bool> _openUsb(String deviceName, SerialConfig config) async {
     try {
       final ok = await _usbMethodChannel.invokeMethod<bool>('openUsbDevice', {
@@ -305,7 +327,8 @@ class FlSerial {
 
   /// Returns all serial ports currently visible on this device.
   ///
-  /// Delegates to [SerialScanner.getAvailablePorts].
+  /// Delegates to [SerialScanner.getAvailablePorts]. Ports of USB devices
+  /// carry [SerialPortInfo.vendorId] and [SerialPortInfo.productId].
   static Future<List<SerialPortInfo>> availablePorts() async {
     return SerialScanner.getAvailablePorts();
   }
