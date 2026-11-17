@@ -56,7 +56,13 @@ public:
         send_port_id = port_id;
     }
 
-    bool open(const std::string &portName, int baudRate, int dataBits, int stopBits, int parity, int flowControl = 0)
+    // dtr / rts: state of the DTR and RTS output lines once the port is open.
+    // They are applied together with the line settings, so the lines never
+    // pass through an intermediate state (e.g. RTS asserted alone, which
+    // resets ESP8266/ESP32 boards with the usual auto-reset circuit). With
+    // hardware flow control the driver owns RTS and `rts` is ignored.
+    bool open(const std::string &portName, int baudRate, int dataBits, int stopBits, int parity, int flowControl = 0,
+              bool dtr = true, bool rts = true)
     {
         close();
 
@@ -83,14 +89,14 @@ public:
             // Hardware RTS/CTS
             dcb.fOutxCtsFlow = TRUE;
             dcb.fRtsControl  = RTS_CONTROL_HANDSHAKE;
-            dcb.fDtrControl  = DTR_CONTROL_ENABLE;
+            dcb.fDtrControl  = dtr ? DTR_CONTROL_ENABLE : DTR_CONTROL_DISABLE;
             dcb.fOutX = FALSE;
             dcb.fInX  = FALSE;
         } else if (flowControl == 2) {
             // Software XON/XOFF
             dcb.fOutxCtsFlow = FALSE;
-            dcb.fRtsControl  = RTS_CONTROL_ENABLE;
-            dcb.fDtrControl  = DTR_CONTROL_ENABLE;
+            dcb.fRtsControl  = rts ? RTS_CONTROL_ENABLE : RTS_CONTROL_DISABLE;
+            dcb.fDtrControl  = dtr ? DTR_CONTROL_ENABLE : DTR_CONTROL_DISABLE;
             dcb.fOutX  = TRUE;
             dcb.fInX   = TRUE;
             dcb.XonChar  = 0x11;
@@ -100,8 +106,8 @@ public:
         } else {
             // No flow control
             dcb.fOutxCtsFlow = FALSE;
-            dcb.fRtsControl  = RTS_CONTROL_ENABLE;
-            dcb.fDtrControl  = DTR_CONTROL_ENABLE;
+            dcb.fRtsControl  = rts ? RTS_CONTROL_ENABLE : RTS_CONTROL_DISABLE;
+            dcb.fDtrControl  = dtr ? DTR_CONTROL_ENABLE : DTR_CONTROL_DISABLE;
             dcb.fOutX = FALSE;
             dcb.fInX  = FALSE;
         }
@@ -156,6 +162,16 @@ public:
         }
 
         tcsetattr(fd, TCSANOW, &tty);
+
+        // open() asserts DTR and RTS on most drivers; set both lines in one
+        // call so that they change together.
+        int lines = 0;
+        if (ioctl(fd, TIOCMGET, &lines) == 0) {
+            lines = dtr ? (lines | TIOCM_DTR) : (lines & ~TIOCM_DTR);
+            if (flowControl != 1)
+                lines = rts ? (lines | TIOCM_RTS) : (lines & ~TIOCM_RTS);
+            ioctl(fd, TIOCMSET, &lines);
+        }
 #endif
 
         running = true;

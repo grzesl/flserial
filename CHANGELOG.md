@@ -1,5 +1,9 @@
 ## 0.8.0
 
+### DTR / RTS on open
+* Added `SerialConfig.dtr` and `SerialConfig.rts` (default `true`, the previous behaviour) — the state of the DTR and RTS lines once the port is open. On Windows they are part of the `DCB` passed to `SetCommState`, on Linux and macOS both lines are set with a single `TIOCMSET` right after `open()`, so the lines no longer toggle when the port opens. Calling `setDTR(false)` then `setRTS(false)` after `open()` left RTS asserted alone for a moment, which resets ESP8266/ESP32 boards with the usual auto-reset circuit. Ignored on Android (USB) and Web
+* The native `serial_open_ext()` takes two more parameters, `dtr` and `rts`
+
 ### USB VID / PID
 * `SerialPortInfo` now carries `vendorId`, `productId` and `serialNumber` (plus the `usbId`, `hasUsbIds` and `matches()` helpers); they are `null` for non-USB ports
 * Added `FlSerial.openByVidPid(vendorId, productId, config, {serialNumber})` — opens a device by its USB IDs at runtime, without knowing the port name

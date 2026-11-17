@@ -142,6 +142,8 @@ class FlSerial {
         config.stopBits,
         config.parity,
         config.flowControl,
+        config.dtr ? 1 : 0,
+        config.rts ? 1 : 0,
       );
 
       if (!success) {
