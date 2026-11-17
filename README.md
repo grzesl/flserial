@@ -111,6 +111,19 @@ await serial.openByVidPid(0x0403, 0x6001, config, serialNumber: 'A50285BI');
 | `stopBits` | int | 1 | Stop bits (1 or 2) |
 | `parity` | int | 0 | 0 = none, 1 = odd, 2 = even |
 | `flowControl` | int | 0 | 0 = none, 1 = RTS/CTS, 2 = XON/XOFF |
+| `dtr` | bool | true | DTR line state after open (desktop only) |
+| `rts` | bool | true | RTS line state after open (desktop only; ignored with RTS/CTS flow control) |
+
+On Windows, Linux and macOS the DTR and RTS states are applied together with
+the line settings when the port opens, so the lines never pass through an
+intermediate state. This matters for boards with the common ESP8266/ESP32
+auto-reset circuit (RTS → EN, DTR → GPIO0): calling `setDTR(false)` and
+`setRTS(false)` after `open()` briefly leaves RTS asserted alone and resets
+the board. Open such boards with the lines in their final state instead:
+
+```dart
+await serial.open('COM6', SerialConfig(baudRate: 115200, dtr: false, rts: false));
+```
 
 ---
 

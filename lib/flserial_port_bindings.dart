@@ -74,6 +74,9 @@ class FLSerialBindings {
   /// parity: 0=none, 1=odd, 2=even
   /// stopBits: 1 lub 2
   /// flowControl: 0=none, 1=RTS/CTS, 2=XON/XOFF
+  /// dtr, rts: stan linii DTR i RTS po otwarciu (1 = aktywna), ustawiany razem
+  /// z parametrami portu, bez stanów pośrednich; przy RTS/CTS linią RTS
+  /// steruje sterownik i rts jest ignorowane
   bool serial_open_ext(
     ffi.Pointer<SerialPort> sp,
     ffi.Pointer<ffi.Char> path,
@@ -82,8 +85,20 @@ class FLSerialBindings {
     int stopBits,
     int parity,
     int flowControl,
+    int dtr,
+    int rts,
   ) {
-    return _serial_open_ext(sp, path, baud, dataBits, stopBits, parity, flowControl);
+    return _serial_open_ext(
+      sp,
+      path,
+      baud,
+      dataBits,
+      stopBits,
+      parity,
+      flowControl,
+      dtr,
+      rts,
+    );
   }
 
   late final _serial_open_extPtr =
@@ -97,6 +112,8 @@ class FLSerialBindings {
             ffi.Int,
             ffi.Int,
             ffi.Int,
+            ffi.Int,
+            ffi.Int,
           )
         >
       >('serial_open_ext');
@@ -105,6 +122,8 @@ class FLSerialBindings {
         bool Function(
           ffi.Pointer<SerialPort>,
           ffi.Pointer<ffi.Char>,
+          int,
+          int,
           int,
           int,
           int,

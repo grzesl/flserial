@@ -150,13 +150,33 @@ class SerialConfig {
   /// * `2` — software XON/XOFF (not supported on Web)
   int flowControl;
 
+  /// State of the DTR (Data Terminal Ready) line once the port is open.
+  ///
+  /// Applied by [FlSerial.open] together with the other line settings, so the
+  /// line does not toggle on open. Set it here rather than calling
+  /// [FlSerial.setDTR] right after [FlSerial.open]: boards with the usual
+  /// ESP8266/ESP32 auto-reset circuit (DTR → GPIO0, RTS → EN) reset or enter
+  /// the bootloader when the lines pass through an intermediate state.
+  ///
+  /// Windows, Linux and macOS; ignored on Android (USB) and Web.
+  bool dtr;
+
+  /// State of the RTS (Request To Send) line once the port is open; see
+  /// [dtr]. Ignored with hardware flow control (`flowControl == 1`), where
+  /// the driver controls RTS.
+  ///
+  /// Windows, Linux and macOS; ignored on Android (USB) and Web.
+  bool rts;
+
   /// Creates a [SerialConfig] with sensible defaults (115200 8N1, no flow
-  /// control).
+  /// control, DTR and RTS asserted).
   SerialConfig({
     this.baudRate = 115200,
     this.dataBits = 8,
     this.stopBits = 1,
     this.parity = 0,
     this.flowControl = 0,
+    this.dtr = true,
+    this.rts = true,
   });
 }

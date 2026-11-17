@@ -48,8 +48,11 @@ FFI_EXPORT void register_port(SerialPort* sp, int64_t port_id);
  * parity: 0=none, 1=odd, 2=even
  * stopBits: 1 lub 2
  * flowControl: 0=none, 1=RTS/CTS, 2=XON/XOFF
+ * dtr, rts: stan linii DTR i RTS po otwarciu (1 = aktywna), ustawiany razem
+ *   z parametrami portu, bez stanów pośrednich; przy RTS/CTS linią RTS
+ *   steruje sterownik i rts jest ignorowane
  */
-FFI_EXPORT bool serial_open_ext(SerialPort* sp, const char* path, int baud, int dataBits, int stopBits, int parity, int flowControl);
+FFI_EXPORT bool serial_open_ext(SerialPort* sp, const char* path, int baud, int dataBits, int stopBits, int parity, int flowControl, int dtr, int rts);
 
 /**
  * Zamyka fizyczne połączenie z portem.
