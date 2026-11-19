@@ -156,6 +156,15 @@ public:
         }
 
         tcsetattr(fd, TCSANOW, &tty);
+
+        // Start with an empty receive buffer. Linux keeps bytes the device
+        // sent while the port was closed and delivers them first on the next
+        // open (seen with a CH340: about 50 bytes, up to a few seconds old,
+        // often ending mid-message). Part of them is still in the adapter and
+        // only arrives a few milliseconds after open(), so wait briefly
+        // before flushing.
+        std::this_thread::sleep_for(std::chrono::milliseconds(50));
+        tcflush(fd, TCIFLUSH);
 #endif
 
         running = true;

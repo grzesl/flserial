@@ -1,5 +1,8 @@
 ## 0.8.0
 
+### Fix
+* Linux / macOS: the receive buffer is now flushed when a port is opened (`tcflush(TCIFLUSH)` 50 ms after `open()`). Bytes the device sent while the port was closed were delivered first on the next open: up to a few seconds old and often ending mid-message (seen with a CH340). Part of them arrives from the adapter only after `open()`, hence the short wait; opening a port takes 50 ms longer
+
 ### USB VID / PID
 * `SerialPortInfo` now carries `vendorId`, `productId` and `serialNumber` (plus the `usbId`, `hasUsbIds` and `matches()` helpers); they are `null` for non-USB ports
 * Added `FlSerial.openByVidPid(vendorId, productId, config, {serialNumber})` — opens a device by its USB IDs at runtime, without knowing the port name
