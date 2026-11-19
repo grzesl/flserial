@@ -1,5 +1,8 @@
 ## 0.8.0
 
+### Lost device detection
+* Windows, Linux and macOS: a pulled cable or removed adapter is now reported. The read loop used to treat a failed read as "no data" and retried, so no event was ever sent and the port looked open forever. Now a failed `ReadFile` (Windows; e.g. `ERROR_ACCESS_DENIED` from the CH340 driver) or a `read()` error other than `EAGAIN` / `EINTR` (POSIX) emits `SerialEventType.error` with the OS error code, then `SerialEventType.disconnected`, and stops the read loop. `close()` still releases the port and does not emit a second `disconnected`
+
 ### USB VID / PID
 * `SerialPortInfo` now carries `vendorId`, `productId` and `serialNumber` (plus the `usbId`, `hasUsbIds` and `matches()` helpers); they are `null` for non-USB ports
 * Added `FlSerial.openByVidPid(vendorId, productId, config, {serialNumber})` — opens a device by its USB IDs at runtime, without knowing the port name

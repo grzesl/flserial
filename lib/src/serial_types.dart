@@ -9,6 +9,11 @@ enum SerialEventType {
 
   /// The port was closed, either by calling [FlSerial.close] or because the
   /// device was physically disconnected.
+  ///
+  /// On Windows, Linux and macOS a lost device (cable pulled, adapter removed)
+  /// is reported as [error] with the OS error code followed by
+  /// [disconnected]. No more data arrives; [FlSerial.close] (or a new [FlSerial.open])
+  /// releases the port.
   disconnected(2),
 
   /// One or more modem control lines (CTS, DSR, RI, DCD) changed state.
@@ -17,7 +22,10 @@ enum SerialEventType {
   lineStatusChanged(3),
 
   /// A transport-level error occurred.
-  /// [SerialEvent.data] may contain a descriptive string.
+  /// [SerialEvent.data] may contain a descriptive string. When the device was
+  /// lost on Windows, Linux or macOS it is the OS error code as an `int`
+  /// (`GetLastError()`, e.g. 5 `ERROR_ACCESS_DENIED`, or `errno`, e.g. `EIO`),
+  /// and [disconnected] follows.
   error(4);
 
   /// Integer wire value used when the native layer sends event codes.
@@ -51,6 +59,7 @@ class SerialEvent {
   /// |------|------|
   /// | [SerialEventType.data] | `Uint8List` |
   /// | [SerialEventType.lineStatusChanged] | `Map<String, bool>` |
+  /// | [SerialEventType.error] | `int` OS error code (device lost) or `String` |
   /// | others | `null` |
   final dynamic data;
 
