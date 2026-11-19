@@ -37,7 +37,7 @@ enum SerialEventType
 class SerialPort
 {
 public:
-    SerialPort() : running(false), send_port_id(0), last_modem_status(-1)
+    SerialPort() : running(false), lost(false), send_port_id(0), last_modem_status(-1)
     {
 #ifdef PLATFORM_WINDOWS
         hSerial = INVALID_HANDLE_VALUE;
@@ -195,7 +195,9 @@ public:
             }
 #endif
 
-            send_simple_event(EVENT_DISCONNECTED);
+            // The read thread already reported a lost device.
+            if (!lost.exchange(false))
+                send_simple_event(EVENT_DISCONNECTED);
         }
     }
 
@@ -297,6 +299,10 @@ public:
 
 private:
     std::atomic<bool> running;
+    // Set by the read thread when the device is gone (cable pulled, adapter
+    // removed). The port stays open until close(), which then does not
+    // report a second disconnect.
+    std::atomic<bool> lost;
     std::thread readThread;
     std::thread writeThread;
     std::atomic<Dart_Port> send_port_id;
@@ -368,12 +374,27 @@ private:
             int bytesRead = 0;
 #ifdef PLATFORM_WINDOWS
             DWORD dwRead;
-            if (ReadFile(hSerial, buffer, sizeof(buffer), &dwRead, NULL) && dwRead > 0)
+            if (ReadFile(hSerial, buffer, sizeof(buffer), &dwRead, NULL))
             {
                 bytesRead = (int)dwRead;
             }
+            else
+            {
+                // With these timeouts ReadFile returns at once, with or
+                // without data, so FALSE is a real error. A pulled cable or
+                // removed adapter gives ERROR_ACCESS_DENIED (CH340) or a
+                // similar code, and every later call fails the same way.
+                report_lost((int)GetLastError());
+                return;
+            }
 #else
             bytesRead = ::read(fd, buffer, sizeof(buffer));
+            if (bytesRead < 0 && errno != EAGAIN && errno != EWOULDBLOCK && errno != EINTR)
+            {
+                // EIO, ENXIO or ENODEV once the device is gone.
+                report_lost(errno);
+                return;
+            }
 #endif
             if (bytesRead > 0)
             {
@@ -384,6 +405,16 @@ private:
                 std::this_thread::sleep_for(std::chrono::milliseconds(1));
             }
         }
+    }
+
+    // Reports a lost device: EVENT_ERROR with the OS error code (GetLastError
+    // or errno), then EVENT_DISCONNECTED. Called by the read thread, which
+    // then ends; the handle is released by close().
+    void report_lost(int code)
+    {
+        lost = true;
+        send_complex_event(EVENT_ERROR, code);
+        send_simple_event(EVENT_DISCONNECTED);
     }
 
     void send_raw_data(uint8_t *buffer, int length)

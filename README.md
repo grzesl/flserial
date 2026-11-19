@@ -49,8 +49,10 @@ serial.events.listen((event) {
       print('Port opened');
     case SerialEventType.data:
       print('Received: ${String.fromCharCodes(event.data as Uint8List)}');
+    case SerialEventType.error:
+      print('Error: ${event.data}'); // e.g. the OS error code of a lost device
     case SerialEventType.disconnected:
-      print('Port closed');
+      print('Port closed or device lost');
     default:
       break;
   }
